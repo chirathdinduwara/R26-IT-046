@@ -1,6 +1,8 @@
 # Dependencies
 */node_modules/
 */package-lock.json
+*/android/
+*/.expo/
 # Environment variables
 .env
 .env.local
