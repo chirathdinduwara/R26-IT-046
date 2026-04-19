@@ -24,6 +24,12 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "061bbb85-2e17-4a27-aa15-11420b0f0cd4"
+      }
+    },
+    "owner": "chirath4321"
   }
 }
