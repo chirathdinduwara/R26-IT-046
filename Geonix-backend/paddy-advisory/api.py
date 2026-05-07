@@ -89,6 +89,27 @@ def get_weather(lat, lon):
         "evapotranspiration": df["et0_fao_evapotranspiration"].sum()
     }
 
+@app.get("/districts")
+def get_districts():
+    locations = pd.read_csv("data/locations.csv")
+    districts = sorted(locations["district"].dropna().unique().tolist())
+    return {"districts": districts}
+
+
+@app.get("/cities/{district}")
+def get_cities(district: str):
+    locations = pd.read_csv("data/locations.csv")
+
+    subset = locations[
+        locations["district"].str.lower() == district.lower()
+    ]
+
+    if subset.empty:
+        return {"cities": []}
+
+    cities = sorted(subset["city"].dropna().unique().tolist())
+    return {"cities": cities}
+
 
 # -------- SOIL DATA --------
 def get_soil(district):
@@ -267,6 +288,7 @@ def predict(data: FarmerInput):
         "Expected_Production_tons": round(production, 2),
         "Risk_Level": risk,
         "Crop_Stage": crop_stage,
-        "Advisory": advice,
+        "Advisory_English": advice["english"],
+        "Advisory_Sinhala": advice["sinhala"],
         "Seven_Day_Rain_Forecast": daily_forecast
     }

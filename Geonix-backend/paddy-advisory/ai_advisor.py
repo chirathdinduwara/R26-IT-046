@@ -1,4 +1,6 @@
 import os
+import json
+import re
 
 def generate_ai_advice(context: dict):
     try:
@@ -9,8 +11,8 @@ def generate_ai_advice(context: dict):
         prompt = f"""
 You are an agricultural advisory assistant for Sri Lankan paddy farmers.
 
-Create a short, practical advisory in simple English.
-Do not invent unknown facts. Use only the provided data.
+Generate farmer-friendly advice in BOTH English and Sinhala.
+Use only the provided data. Do not invent facts.
 
 Farmer context:
 - District: {context['district']}
@@ -26,15 +28,15 @@ Farmer context:
 - 7-day rainfall: {context['total_rainfall']} mm
 - Average temperature: {context['avg_temp']} °C
 
-Crop calendar/rule notes:
+Rule notes:
 {chr(10).join(['- ' + r for r in context['rules']])}
 
-Output format:
-1. Current condition
-2. Irrigation advice
-3. Fertilizer/crop management advice
-4. Risk warning
-Keep it under 120 words.
+Return ONLY valid JSON:
+{{
+  "advisory_english": "1. Current condition\\n...\\n\\n2. Irrigation advice\\n...\\n\\n3. Fertilizer / Crop management\\n...\\n\\n4. Risk warning\\n...",
+  "advisory_sinhala": "1. වත්මන් තත්ත්වය\\n...\\n\\n2. ජල කළමනාකරණ උපදෙස්\\n...\\n\\n3. පොහොර / වගා කළමනාකරණ උපදෙස්\\n...\\n\\n4. අවදානම් අනතුරු ඇඟවීම\\n..."
+}}
+Keep each language under 140 words.
 """
 
         response = client.models.generate_content(
@@ -42,8 +44,23 @@ Keep it under 120 words.
             contents=prompt
         )
 
-        return response.text
+        text = response.text.strip()
 
-    except Exception as e:
-        # fallback if API key missing / quota issue / network issue
-        return " ".join(context.get("rules", [])) + f" AI advisory unavailable: {str(e)}"
+        # remove possible markdown code fences
+        text = re.sub(r"^```json\s*", "", text)
+        text = re.sub(r"^```\s*", "", text)
+        text = re.sub(r"\s*```$", "", text)
+
+        data = json.loads(text)
+
+        return {
+            "english": data.get("advisory_english", ""),
+            "sinhala": data.get("advisory_sinhala", "")
+        }
+
+    except Exception:
+        fallback = " ".join(context.get("rules", []))
+        return {
+            "english": fallback,
+            "sinhala": "වගා තත්ත්වය නිරීක්ෂණය කරන්න. ජල සැපයුම, පොහොර යෙදීම සහ වර්ධන අදියර අනුව වගා කළමනාකරණය සිදු කරන්න."
+        }
