@@ -3,6 +3,8 @@ import { Platform } from "react-native";
 import HomeScreen from "../screens/home/HomeScreen";
 import FloodMapScreen from "../screens/FloodMapScreen";
 import FloodMapScreenDivision from "../screens/FloodMapScreenDivision";
+import DengueRiskScreen from "../screens/DengueRiskScreen";
+import DengueChatbotScreen from "../screens/DengueChatbotScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -81,6 +83,34 @@ export default function HomeStack() {
           },
           headerRight: () => (
             <DistrictBadge label="TAP TO PREDICT" color={HEADER.teal} />
+          ),
+        }}
+      />
+
+      <Stack.Screen
+        name="DengueWarning"
+        component={DengueRiskScreen}
+        options={{
+          title: "Dengue Warning",
+          headerTitleStyle: {
+            ...baseHeader.headerTitleStyle,
+          },
+          headerRight: () => (
+            <DistrictBadge label="RISK ALERTS" color={HEADER.teal} />
+          ),
+        }}
+      />
+
+      <Stack.Screen
+        name="DengueChatbot"
+        component={DengueChatbotScreen}
+        options={{
+          title: "Dengue AI Assistant",
+          headerTitleStyle: {
+            ...baseHeader.headerTitleStyle,
+          },
+          headerRight: () => (
+            <DistrictBadge label="CHAT PREVIEW" color={HEADER.amber} />
           ),
         }}
       />
