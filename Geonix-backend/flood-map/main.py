@@ -1,417 +1,9 @@
-# # from fastapi import FastAPI
-# # from fastapi.middleware.cors import CORSMiddleware
-# # import geopandas as gpd
-# # import pandas as pd
-# # import numpy as np
-# # import joblib
-# # import json
-
-# # app = FastAPI()
-
-# # app.add_middleware(
-# #     CORSMiddleware,
-# #     allow_origins=["*"],
-# #     allow_methods=["*"],
-# #     allow_headers=["*"],
-# # )
-
-# # # -----------------------------
-# # # LOAD MODEL + GRID
-# # # -----------------------------
-# # model = joblib.load("model/flood_model3.pkl")
-# # grid = gpd.read_file("model/grid.geojson").to_crs(epsg=4326)
-
-# # with open("model/feature_cols.json") as f:
-# #     FEATURE_COLS = json.load(f)
-
-# # print("Model loaded. Features:", FEATURE_COLS)
-# # print(f"Grid: {len(grid):,} cells")
-
-
-# # # -----------------------------
-# # # HOME
-# # # -----------------------------
-# # @app.get("/")
-# # def home():
-# #     return {
-# #         "message": "Flood Prediction API — Colombo District",
-# #         "features": FEATURE_COLS,
-# #         "grid_cells": len(grid),
-# #     }
-
-
-# # # -----------------------------
-# # # PREDICT ENDPOINT
-# # # -----------------------------
-# # @app.get("/predict")
-# # def predict(
-# #     rainfall_7day: float = 90.0,
-# #     rainfall_14day: float = None,
-# #     threshold: float = 0.45,
-# # ):
-
-# #     # -----------------------------
-# #     # 🌧️ PHYSICAL SAFETY GATE
-# #     # -----------------------------
-# #     if rainfall_7day < 5:
-# #         return {
-# #             "type": "FeatureCollection",
-# #             "features": [],
-# #             "debug": {
-# #                 "message": "No flood expected at very low rainfall",
-# #                 "rainfall_7day_mm": rainfall_7day,
-# #                 "rainfall_14day_mm": 0,
-# #                 "threshold": threshold,
-# #                 "total_cells": len(grid),
-# #                 "flooded_cells": 0,
-# #                 "flooded_pct": 0.0,
-# #             },
-# #         }
-
-# #     # -----------------------------
-# #     # ESTIMATE 14 DAY RAINFALL
-# #     # -----------------------------
-# #     r14 = rainfall_14day if rainfall_14day is not None else rainfall_7day * 1.8
-
-# #     # -----------------------------
-# #     # BUILD FEATURE MATRIX
-# #     # -----------------------------
-# #     X = pd.DataFrame({
-# #         "elevation": grid["elevation"].values,
-# #         "dist_river": grid["dist_river"].values,
-# #         "rainfall_7day": rainfall_7day,
-# #         "rainfall_14day": r14,
-# #     })
-
-# #     # -----------------------------
-# #     # MODEL PREDICTION
-# #     # -----------------------------
-# #     probs = model.predict_proba(X[FEATURE_COLS])[:, 1]
-
-# #     # -----------------------------
-# #     # 🌧️ RAINFALL PHYSICS SCALING
-# #     # -----------------------------
-# #     rainfall_factor = min(rainfall_7day / 100.0, 1.0)
-# #     probs = probs * rainfall_factor
-
-# #     flood_mask = probs > threshold
-
-# #     # -----------------------------
-# #     # DEBUG INFO
-# #     # -----------------------------
-# #     debug = {
-# #         "rainfall_7day_mm": rainfall_7day,
-# #         "rainfall_14day_mm": round(r14, 1),
-# #         "threshold": threshold,
-# #         "total_cells": len(grid),
-# #         "flooded_cells": int(flood_mask.sum()),
-# #         "flooded_pct": round(float(flood_mask.mean() * 100), 2),
-# #         "prob_min": float(probs.min()),
-# #         "prob_max": float(probs.max()),
-# #         "prob_mean": float(probs.mean()),
-# #     }
-
-# #     # -----------------------------
-# #     # NO FLOOD CASE
-# #     # -----------------------------
-# #     if not flood_mask.any():
-# #         return {
-# #             "type": "FeatureCollection",
-# #             "features": [],
-# #             "debug": debug,
-# #         }
-
-# #     # -----------------------------
-# #     # FLOOD CELLS
-# #     # -----------------------------
-# #     flood_cells = grid[flood_mask].copy()
-
-# #     # dissolve + smooth
-# #     fp = flood_cells.to_crs(epsg=5235)
-# #     fp["geometry"] = fp.geometry.buffer(15)
-
-# #     dissolved = (
-# #         fp.dissolve()
-# #         .explode(index_parts=False)
-# #         .reset_index(drop=True)
-# #     )
-
-# #     dissolved = dissolved[dissolved.geometry.area > 80_000]
-# #     dissolved["geometry"] = dissolved.geometry.buffer(-15)
-# #     dissolved = dissolved.to_crs(epsg=4326)
-
-# #     # -----------------------------
-# #     # GEOJSON OUTPUT
-# #     # -----------------------------
-# #     features = []
-
-# #     for _, row in dissolved.iterrows():
-# #         geom = row.geometry
-
-# #         if geom is None or geom.is_empty:
-# #             continue
-
-# #         polys = [geom] if geom.geom_type == "Polygon" else list(geom.geoms)
-
-# #         for poly in polys:
-# #             rings = [[[x, y] for x, y in poly.exterior.coords]]
-# #             rings += [[[x, y] for x, y in i.coords] for i in poly.interiors]
-
-# #             features.append({
-# #                 "type": "Feature",
-# #                 "properties": {"flood_risk": "high"},
-# #                 "geometry": {
-# #                     "type": "Polygon",
-# #                     "coordinates": rings,
-# #                 },
-# #             })
-
-# #     return {
-# #         "type": "FeatureCollection",
-# #         "features": features,
-# #         "debug": debug,
-# #     }
-
-
-# # # -----------------------------
-# # # VERIFY MODEL BEHAVIOR
-# # # -----------------------------
-# # @app.get("/verify")
-# # def verify():
-
-# #     results = []
-
-# #     for r7 in [20, 49, 90, 110, 148, 200]:
-
-# #         X = pd.DataFrame({
-# #             "elevation": grid["elevation"].values,
-# #             "dist_river": grid["dist_river"].values,
-# #             "rainfall_7day": r7,
-# #             "rainfall_14day": r7 * 1.8,
-# #         })
-
-# #         probs = model.predict_proba(X[FEATURE_COLS])[:, 1]
-
-# #         rainfall_factor = min(r7 / 100.0, 1.0)
-# #         probs = probs * rainfall_factor
-
-# #         results.append({
-# #             "rainfall_7day_mm": r7,
-# #             "rainfall_14day_mm": round(r7 * 1.8, 0),
-# #             "flooded_pct": round(float((probs > 0.45).mean() * 100), 2),
-# #             "avg_prob": round(float(probs.mean()), 4),
-# #         })
-
-# #     all_same = len(set(r["flooded_pct"] for r in results)) == 1
-
-# #     return {
-# #         "model_working": not all_same,
-# #         "status": "BROKEN — retrain" if all_same else "OK",
-# #         "results": results,
-# #     }
-
-
-# from fastapi import FastAPI
-# from fastapi.middleware.cors import CORSMiddleware
-# from pydantic import BaseModel
-# import geopandas as gpd, pandas as pd, numpy as np
-# import joblib, json
-# from sklearn.preprocessing import LabelEncoder
-# from xgboost import XGBClassifier
-
-# # ── Load artifacts ────────────────────────────────────────────────────────────
-# model  = joblib.load("model/flood_modelupdated.pkl")
-# le     = joblib.load("model/division_encoder.pkl")
-# grid   = gpd.read_file("model/grid.geojson").to_crs(4326)
-# config = json.load(open("model/configupdated.json"))
-# FEATS  = config["feature_cols"]
-# THRESH = config["threshold"]
-# DIVS   = config["divisions"]
-
-# def cells_to_polygons(flood_cells, min_area_m2=40_000):
-#     if flood_cells.empty: return {"type":"FeatureCollection","features":[]}
-#     fp = flood_cells.to_crs(5235).copy()
-#     fp["geometry"] = fp.geometry.buffer(12)
-#     diss = fp.dissolve().explode(index_parts=False).reset_index(drop=True)
-#     diss = diss[diss.geometry.area > min_area_m2]
-#     diss["geometry"] = diss.geometry.buffer(-12)
-#     diss = diss.to_crs(4326)
-#     features=[]
-#     for _, row in diss.iterrows():
-#         geom=row.geometry
-#         if not geom or geom.is_empty: continue
-#         polys=[geom] if geom.geom_type=="Polygon" else list(geom.geoms)
-#         mp=float(row.get("flood_prob",0.8))
-#         sev="high" if mp>0.70 else "medium" if mp>0.50 else "low"
-#         for poly in polys:
-#             rings=[list(map(list,poly.exterior.coords))]
-#             rings+=[list(map(list,i.coords)) for i in poly.interiors]
-#             features.append({"type":"Feature",
-#                 "geometry":{"type":"Polygon","coordinates":rings},
-#                 "properties":{"severity":sev,"mean_prob":round(mp,3),
-#                     "area_km2":round(poly.area*(111.32**2)*
-#                         np.cos(np.radians(poly.centroid.y)),3)}})
-#     return {"type":"FeatureCollection","features":features}
-
-# # ── App ───────────────────────────────────────────────────────────────────────
-# app = FastAPI(title="Colombo Flood Predictor v3")
-# app.add_middleware(CORSMiddleware, allow_origins=["*"],
-#                    allow_methods=["*"], allow_headers=["*"])
-
-# class SubdistInput(BaseModel):
-#     division:          str
-#     rainfall_7day:     float
-#     rainfall_14day:    float
-#     upstream_rain_7d:  float
-#     upstream_rain_14d: float
-#     river_water_level: float
-#     threshold:         float | None = None
-
-# class DivisionWeather(BaseModel):
-#     rainfall_7day:     float
-#     rainfall_14day:    float
-#     upstream_rain_7d:  float
-#     upstream_rain_14d: float
-#     river_water_level: float
-
-# class FullMapInput(BaseModel):
-#     divisions: dict[str, DivisionWeather]   # {division_name: weather}
-#     threshold: float | None = None
-# # @app.post("/predict/subdist")
-# # async def predict_subdist(req: SubdistInput):
-
-# #     # 1. Validate division
-# #     if req.division not in DIVS:
-# #         return {"error": "Invalid division", "valid": DIVS}
-
-# #     thresh = req.threshold or THRESH
-
-# #     # 2. STRICT DIVISION FILTER
-# #     g_sub = grid[grid["division"] == req.division].copy()
-
-# #     if g_sub.empty:
-# #         return {"error": "No grid found for division"}
-
-# #     div_enc = le.transform([req.division])[0]
-
-# #     # 3. FEATURE MATRIX
-# #     X = pd.DataFrame({
-# #         "elevation": g_sub["elevation"].values,
-# #         "dist_river": g_sub["dist_river"].values,
-# #         "rainfall_7day": req.rainfall_7day,
-# #         "rainfall_14day": req.rainfall_14day,
-# #         "upstream_rain_7d": req.upstream_rain_7d,
-# #         "upstream_rain_14d": req.upstream_rain_14d,
-# #         "river_water_level": req.river_water_level,
-# #         "division_enc": div_enc
-# #     })
-
-# #     # 4. PREDICT
-# #     probs = model.predict_proba(X[FEATS])[:, 1]
-
-# #     # 🔥 CRITICAL FIX: clamp + smooth
-# #     probs = np.clip(probs, 0, 1)
-
-# #     # Optional smoothing (VERY IMPORTANT for maps)
-# #     probs = pd.Series(probs).rolling(3, min_periods=1).mean().values
-
-# #     g_sub["flood_prob"] = probs
-
-# #     # 5. STRICT THRESHOLD FILTER
-# #     flooded = g_sub[g_sub["flood_prob"] >= thresh].copy()
-
-# #     # 6. SAFETY: avoid "everything flooded"
-# #     flood_ratio = len(flooded) / len(g_sub)
-
-# #     if flood_ratio > 0.85:
-# #         # too aggressive → reduce sensitivity
-# #         thresh = np.percentile(probs, 90)
-# #         flooded = g_sub[g_sub["flood_prob"] >= thresh]
-
-# #     # 7. BUILD GEOJSON
-# #     geojson = cells_to_polygons(flooded)
-
-# #     # 8. DEBUG METRICS
-# #     debug = {
-# #         "division": req.division,
-# #         "threshold": float(thresh),
-# #         "mean_prob": float(np.mean(probs)),
-# #         "max_prob": float(np.max(probs)),
-# #         "min_prob": float(np.min(probs)),
-# #         "flooded_cells": int(len(flooded)),
-# #         "total_cells": int(len(g_sub)),
-# #         "flood_ratio": float(flood_ratio),
-# #     }
-
-# #     return {
-# #         "geojson": geojson,
-# #         "division": req.division,
-# #         "flooded_pct": round(float((probs >= thresh).mean() * 100), 2),
-# #         "zones": len(geojson["features"]),
-# #         "debug": debug
-# #     }
-# @app.post("/predict/subdist")
-# async def predict_subdist(req: SubdistInput):
-#     thresh = req.threshold or THRESH
-#     mask   = grid["division"] == req.division
-#     g_sub  = grid[mask].reset_index(drop=True)
-#     if g_sub.empty:
-#         return {"error": f"Unknown division: {req.division}", "valid": DIVS}
-#     div_enc = le.transform([req.division])[0] if req.division in le.classes_ else 0
-#     X = pd.DataFrame({"elevation":g_sub["elevation"].values,
-#         "dist_river":g_sub["dist_river"].values,
-#         "rainfall_7day":req.rainfall_7day, "rainfall_14day":req.rainfall_14day,
-#         "upstream_rain_7d":req.upstream_rain_7d,
-#         "upstream_rain_14d":req.upstream_rain_14d,
-#         "river_water_level":req.river_water_level, "division_enc":div_enc})
-#     probs = model.predict_proba(X[FEATS])[:,1]
-#     g_sub = g_sub.copy(); g_sub["flood_prob"] = probs
-#     geojson = cells_to_polygons(g_sub[probs>=thresh])
-#     return {"geojson":geojson,"division":req.division,
-#             "flooded_pct":round(float((probs>=thresh).mean()*100),2),
-#             "zones":len(geojson["features"])}
-
-# @app.post("/predict/full")
-# async def predict_full(req: FullMapInput):
-#     thresh = req.threshold or THRESH
-#     supplied = [v.model_dump() for v in req.divisions.values()]
-#     fallback = {k: np.mean([s[k] for s in supplied]) for k in supplied[0]}
-#     n=len(grid)
-#     r7=np.zeros(n);r14=np.zeros(n);up7=np.zeros(n)
-#     up14=np.zeros(n);rl=np.zeros(n);enc=np.zeros(n,dtype=int)
-#     for i,div in enumerate(grid["division"].values):
-#         wx=req.divisions.get(div)
-#         w=wx.model_dump() if wx else fallback
-#         r7[i]=w["rainfall_7day"]; r14[i]=w["rainfall_14day"]
-#         up7[i]=w["upstream_rain_7d"]; up14[i]=w["upstream_rain_14d"]
-#         rl[i]=w["river_water_level"]
-#         enc[i]=le.transform([div])[0] if div in le.classes_ else 0
-#     X=pd.DataFrame({"elevation":grid["elevation"].values,
-#         "dist_river":grid["dist_river"].values,
-#         "rainfall_7day":r7,"rainfall_14day":r14,
-#         "upstream_rain_7d":up7,"upstream_rain_14d":up14,
-#         "river_water_level":rl,"division_enc":enc})
-#     probs=model.predict_proba(X[FEATS])[:,1]
-#     gw=grid.copy(); gw["flood_prob"]=probs
-#     geojson=cells_to_polygons(gw[probs>=thresh])
-#     return {"geojson":geojson,
-#             "flooded_pct":round(float((probs>=thresh).mean()*100),2),
-#             "zones":len(geojson["features"])}
-
-# @app.get("/divisions")
-# async def list_divisions(): return {"divisions": DIVS}
-
-# @app.get("/health")
-# async def health(): return {"status":"ok","grid_cells":len(grid)}
-
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import geopandas as gpd, pandas as pd, numpy as np
-import joblib, json
-from sklearn.preprocessing import LabelEncoder
-from xgboost import XGBClassifier
+import joblib, json, httpx
+from datetime import datetime, timedelta, timezone
 
 # ── Load artifacts ────────────────────────────────────────────────────────────
 model  = joblib.load("model/flood_model.pkl")
@@ -422,35 +14,115 @@ FEATS  = config["feature_cols"]
 THRESH = config["threshold"]
 DIVS   = config["divisions"]
 
+# ─────────────────────────────────────────────────────────────────────────────
+# PHYSICS GATE
+# ─────────────────────────────────────────────────────────────────────────────
+# Three-signal gate based on Colombo / Kelani basin flood behaviour:
+#
+#   HARD MIN  → below this the signal physically cannot cause flooding.
+#               Return empty GeoJSON immediately, skip the model entirely.
+#
+#   SOFT MIN  → between hard and soft the signal is weak.
+#               Run the model but multiply probabilities by a 0→1 ramp factor
+#               so low-but-not-impossible conditions produce proportionally
+#               smaller flood extents instead of full-strength predictions.
+#
+#   Above SOFT → model runs at full strength (dampen factor = 1.0).
+#
+#  metric               hard_min  soft_min   unit
+GATE = {
+    "rainfall_7day":    ( 40.0,    80.0 ),  # mm   — 7-day local rainfall
+    "upstream_rain_7d": ( 30.0,    60.0 ),  # mm   — Kelani catchment (Kitulgala/Avissawella)
+    "river_water_level":( 6.5,      8.0 ),  # m    — Hanwella gauge (alert ~8m, danger ~10m)
+}
+
+# Weights match the training feature importance split
+WEIGHTS = {"rainfall_7day": 0.45, "upstream_rain_7d": 0.25, "river_water_level": 0.30}
+
+
+def physics_score(r7: float, up7: float, river: float) -> tuple[bool, float]:
+    """
+    Returns (hard_blocked, dampen_factor).
+
+    hard_blocked = True   → caller must return empty response immediately.
+    dampen_factor 0.0-1.0 → multiply model probabilities before threshold comparison.
+                            1.0 = full strength.  0.0 = nothing passes threshold.
+    """
+    vals = {"rainfall_7day": r7, "upstream_rain_7d": up7, "river_water_level": river}
+
+    # Hard gate: any single signal below its absolute minimum → no flood
+    for key, (hard_min, _) in GATE.items():
+        if vals[key] < hard_min:
+            return True, 0.0
+
+    # Soft dampening: linear ramp per signal between hard_min and soft_min
+    factors = {}
+    for key, (hard_min, soft_min) in GATE.items():
+        v = vals[key]
+        factors[key] = 1.0 if v >= soft_min else (v - hard_min) / (soft_min - hard_min)
+
+    dampen = float(np.clip(sum(WEIGHTS[k] * factors[k] for k in WEIGHTS), 0.0, 1.0))
+    return False, dampen
+
+
+def empty_response(reason: str, r7: float, up7: float, river: float, division: str = None):
+    resp = {
+        "geojson":     {"type": "FeatureCollection", "features": []},
+        "flooded_pct": 0.0,
+        "zones":       0,
+        "blocked":     True,
+        "reason":      reason,
+        "inputs":      {
+            "rainfall_7day_mm":    r7,
+            "upstream_rain_7d_mm": up7,
+            "river_water_level_m": river,
+        },
+    }
+    if division:
+        resp["division"] = division
+    return resp
+
+
+# ── Polygon builder ───────────────────────────────────────────────────────────
 def cells_to_polygons(flood_cells, min_area_m2=40_000):
-    if flood_cells.empty: return {"type":"FeatureCollection","features":[]}
+    if flood_cells.empty:
+        return {"type": "FeatureCollection", "features": []}
     fp = flood_cells.to_crs(5235).copy()
     fp["geometry"] = fp.geometry.buffer(12)
     diss = fp.dissolve().explode(index_parts=False).reset_index(drop=True)
     diss = diss[diss.geometry.area > min_area_m2]
     diss["geometry"] = diss.geometry.buffer(-12)
     diss = diss.to_crs(4326)
-    features=[]
+    features = []
     for _, row in diss.iterrows():
-        geom=row.geometry
-        if not geom or geom.is_empty: continue
-        polys=[geom] if geom.geom_type=="Polygon" else list(geom.geoms)
-        mp=float(row.get("flood_prob",0.8))
-        sev="high" if mp>0.70 else "medium" if mp>0.50 else "low"
+        geom = row.geometry
+        if not geom or geom.is_empty:
+            continue
+        polys = [geom] if geom.geom_type == "Polygon" else list(geom.geoms)
+        mp  = float(row.get("flood_prob", 0.8))
+        sev = "high" if mp > 0.70 else "medium" if mp > 0.50 else "low"
         for poly in polys:
-            rings=[list(map(list,poly.exterior.coords))]
-            rings+=[list(map(list,i.coords)) for i in poly.interiors]
-            features.append({"type":"Feature",
-                "geometry":{"type":"Polygon","coordinates":rings},
-                "properties":{"severity":sev,"mean_prob":round(mp,3),
-                    "area_km2":round(poly.area*(111.32**2)*
-                        np.cos(np.radians(poly.centroid.y)),3)}})
-    return {"type":"FeatureCollection","features":features}
+            rings = [list(map(list, poly.exterior.coords))]
+            rings += [list(map(list, i.coords)) for i in poly.interiors]
+            features.append({
+                "type": "Feature",
+                "geometry": {"type": "Polygon", "coordinates": rings},
+                "properties": {
+                    "severity":  sev,
+                    "mean_prob": round(mp, 3),
+                    "area_km2":  round(
+                        poly.area * (111.32 ** 2) * np.cos(np.radians(poly.centroid.y)), 3
+                    ),
+                },
+            })
+    return {"type": "FeatureCollection", "features": features}
+
 
 # ── App ───────────────────────────────────────────────────────────────────────
-app = FastAPI(title="Colombo Flood Predictor v3")
+app = FastAPI(title="Colombo Flood Predictor v4")
 app.add_middleware(CORSMiddleware, allow_origins=["*"],
                    allow_methods=["*"], allow_headers=["*"])
+
 
 class SubdistInput(BaseModel):
     division:          str
@@ -461,6 +133,7 @@ class SubdistInput(BaseModel):
     river_water_level: float
     threshold:         float | None = None
 
+
 class DivisionWeather(BaseModel):
     rainfall_7day:     float
     rainfall_14day:    float
@@ -468,60 +141,224 @@ class DivisionWeather(BaseModel):
     upstream_rain_14d: float
     river_water_level: float
 
+
 class FullMapInput(BaseModel):
-    divisions: dict[str, DivisionWeather]   # {division_name: weather}
+    divisions: dict[str, DivisionWeather]
     threshold: float | None = None
 
+
+# ── Live river level ──────────────────────────────────────────────────────────
+RIVER_API = "https://api.riverwatch.lk/v1/stations/6930a98221f7b8c9787f0622/history"
+
+async def get_latest_river_level() -> float:
+    now = datetime.now(timezone.utc)
+    params = {
+        "limit":      1,
+        "start_date": (now - timedelta(days=3)).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
+        "end_date":   now.strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
+    }
+    try:
+        async with httpx.AsyncClient(timeout=8) as client:
+            r = await client.get(RIVER_API, params=params)
+            r.raise_for_status()
+            print(f"Latest river level from API: {r.json()[0]['waterLevel']} m")
+            return float(r.json()[0]["waterLevel"])
+    except Exception:
+        return 6.0   # conservative fallback keeps gate closed
+
+
+# ── POST /predict/subdist ─────────────────────────────────────────────────────
 @app.post("/predict/subdist")
 async def predict_subdist(req: SubdistInput):
     thresh = req.threshold or THRESH
-    mask   = grid["division"] == req.division
-    g_sub  = grid[mask].reset_index(drop=True)
+
+    # 1. Physics gate
+    blocked, dampen = physics_score(
+        req.rainfall_7day, req.upstream_rain_7d, req.river_water_level
+    )
+    if blocked:
+        return empty_response(
+            "Conditions below minimum flood threshold — no flood expected",
+            req.rainfall_7day, req.upstream_rain_7d, req.river_water_level,
+            division=req.division,
+        )
+
+    # 2. Grid subset for this division
+    g_sub = grid[grid["division"] == req.division].reset_index(drop=True)
     if g_sub.empty:
         return {"error": f"Unknown division: {req.division}", "valid": DIVS}
-    div_enc = le.transform([req.division])[0] if req.division in le.classes_ else 0
-    X = pd.DataFrame({"elevation":g_sub["elevation"].values,
-        "dist_river":g_sub["dist_river"].values,
-        "rainfall_7day":req.rainfall_7day, "rainfall_14day":req.rainfall_14day,
-        "upstream_rain_7d":req.upstream_rain_7d,
-        "upstream_rain_14d":req.upstream_rain_14d,
-        "river_water_level":req.river_water_level, "division_enc":div_enc})
-    probs = model.predict_proba(X[FEATS])[:,1]
-    g_sub = g_sub.copy(); g_sub["flood_prob"] = probs
-    geojson = cells_to_polygons(g_sub[probs>=thresh])
-    return {"geojson":geojson,"division":req.division,
-            "flooded_pct":round(float((probs>=thresh).mean()*100),2),
-            "zones":len(geojson["features"])}
 
+    div_enc = le.transform([req.division])[0] if req.division in le.classes_ else 0
+
+    X = pd.DataFrame({
+        "elevation":         g_sub["elevation"].values,
+        "dist_river":        g_sub["dist_river"].values,
+        "rainfall_7day":     req.rainfall_7day,
+        "rainfall_14day":    req.rainfall_14day,
+        "upstream_rain_7d":  req.upstream_rain_7d,
+        "upstream_rain_14d": req.upstream_rain_14d,
+        "river_water_level": req.river_water_level,
+        "division_enc":      div_enc,
+    })
+
+    # 3. Predict + dampen
+    probs = model.predict_proba(X[FEATS])[:, 1] * dampen
+
+    g_sub = g_sub.copy()
+    g_sub["flood_prob"] = probs
+    geojson = cells_to_polygons(g_sub[probs >= thresh])
+
+    return {
+        "geojson":       geojson,
+        "division":      req.division,
+        "flooded_pct":   round(float((probs >= thresh).mean() * 100), 2),
+        "zones":         len(geojson["features"]),
+        "dampen_factor": round(dampen, 3),
+        "blocked":       False,
+    }
+
+
+# ── POST /predict/full ────────────────────────────────────────────────────────
 @app.post("/predict/full")
 async def predict_full(req: FullMapInput):
     thresh = req.threshold or THRESH
-    supplied = [v.model_dump() for v in req.divisions.values()]
-    fallback = {k: np.mean([s[k] for s in supplied]) for k in supplied[0]}
-    n=len(grid)
-    r7=np.zeros(n);r14=np.zeros(n);up7=np.zeros(n)
-    up14=np.zeros(n);rl=np.zeros(n);enc=np.zeros(n,dtype=int)
-    for i,div in enumerate(grid["division"].values):
-        wx=req.divisions.get(div)
-        w=wx.model_dump() if wx else fallback
-        r7[i]=w["rainfall_7day"]; r14[i]=w["rainfall_14day"]
-        up7[i]=w["upstream_rain_7d"]; up14[i]=w["upstream_rain_14d"]
-        rl[i]=w["river_water_level"]
-        enc[i]=le.transform([div])[0] if div in le.classes_ else 0
-    X=pd.DataFrame({"elevation":grid["elevation"].values,
-        "dist_river":grid["dist_river"].values,
-        "rainfall_7day":r7,"rainfall_14day":r14,
-        "upstream_rain_7d":up7,"upstream_rain_14d":up14,
-        "river_water_level":rl,"division_enc":enc})
-    probs=model.predict_proba(X[FEATS])[:,1]
-    gw=grid.copy(); gw["flood_prob"]=probs
-    geojson=cells_to_polygons(gw[probs>=thresh])
-    return {"geojson":geojson,
-            "flooded_pct":round(float((probs>=thresh).mean()*100),2),
-            "zones":len(geojson["features"])}
 
+    live_river_level = await get_latest_river_level()
+
+    supplied = [v.model_dump() for v in req.divisions.values()]
+    fallback = {k: float(np.mean([s[k] for s in supplied])) for k in supplied[0]}
+
+    # City-level gate using mean rainfall + live river
+    mean_r7  = float(np.mean([s["rainfall_7day"]    for s in supplied]))
+    mean_up7 = float(np.mean([s["upstream_rain_7d"] for s in supplied]))
+    blocked, _ = physics_score(mean_r7, mean_up7, live_river_level)
+    if blocked:
+        return empty_response(
+            "City-wide conditions below minimum flood threshold",
+            mean_r7, mean_up7, live_river_level,
+        ) | {"river_level": live_river_level}
+
+    n    = len(grid)
+    r7   = np.zeros(n);  r14   = np.zeros(n)
+    up7  = np.zeros(n);  up14  = np.zeros(n)
+    rl   = np.full(n, live_river_level)
+    enc  = np.zeros(n, dtype=int)
+    cell_dampen = np.ones(n)   # per-division dampening
+
+    for i, div in enumerate(grid["division"].values):
+        wx = req.divisions.get(div)
+        w  = wx.model_dump() if wx else fallback
+        r7[i]   = w["rainfall_7day"]
+        r14[i]  = w["rainfall_14day"]
+        up7[i]  = w["upstream_rain_7d"]
+        up14[i] = w["upstream_rain_14d"]
+        enc[i]  = le.transform([div])[0] if div in le.classes_ else 0
+        # Each cell gets a dampen factor based on its division's own rainfall
+        _, cell_dampen[i] = physics_score(
+            w["rainfall_7day"], w["upstream_rain_7d"], live_river_level
+        )
+
+    X = pd.DataFrame({
+        "elevation":         grid["elevation"].values,
+        "dist_river":        grid["dist_river"].values,
+        "rainfall_7day":     r7,
+        "rainfall_14day":    r14,
+        "upstream_rain_7d":  up7,
+        "upstream_rain_14d": up14,
+        "river_water_level": rl,
+        "division_enc":      enc,
+    })
+
+    # Per-cell dampening applied after model inference
+    probs = model.predict_proba(X[FEATS])[:, 1] * cell_dampen
+
+    gw = grid.copy()
+    gw["flood_prob"] = probs
+    geojson = cells_to_polygons(gw[probs >= thresh])
+
+    return {
+        "geojson":     geojson,
+        "flooded_pct": round(float((probs >= thresh).mean() * 100), 2),
+        "zones":       len(geojson["features"]),
+        "river_level": live_river_level,
+        "blocked":     False,
+    }
+
+
+# ── Utility endpoints ─────────────────────────────────────────────────────────
 @app.get("/divisions")
-async def list_divisions(): return {"divisions": DIVS}
+async def list_divisions():
+    return {"divisions": DIVS}
+
 
 @app.get("/health")
-async def health(): return {"status":"ok","grid_cells":len(grid)}
+async def health():
+    return {"status": "ok", "grid_cells": len(grid)}
+
+@app.get("/riverLevel")
+async def get_river_level():
+    return {"river_level": await get_latest_river_level()}
+
+
+@app.get("/thresholds")
+async def get_thresholds():
+    """Returns the physics gate limits — useful for frontend tooltips."""
+    return {
+        "physics_gate": {
+            "rainfall_7day":    {"hard_min": 40,  "soft_min": 80,  "unit": "mm"},
+            "upstream_rain_7d": {"hard_min": 30,  "soft_min": 60,  "unit": "mm"},
+            "river_water_level":{"hard_min": 6.5, "soft_min": 8.0, "unit": "metres"},
+        },
+        "model_threshold": THRESH,
+        "note": (
+            "Below hard_min → always empty (blocked). "
+            "Between hard_min and soft_min → model runs with dampened probabilities. "
+            "Above soft_min → model runs at full strength."
+        ),
+    }
+
+
+@app.get("/verify")
+async def verify():
+    """Sanity check: flood area must grow monotonically with rainfall + river level."""
+    scenarios = [
+        (20,  5.0,  "dry season"),
+        (50,  6.8,  "light rain"),
+        (80,  8.5,  "moderate"),
+        (120, 10.0, "heavy"),
+        (180, 12.0, "extreme"),
+    ]
+    results = []
+    for r7, river, label in scenarios:
+        blocked, dampen = physics_score(r7, r7 * 0.6, river)
+        if blocked:
+            results.append({"label": label, "rainfall_7d": r7, "river_m": river,
+                             "flooded_pct": 0.0, "blocked": True})
+            continue
+        X = pd.DataFrame({
+            "elevation":         grid["elevation"].values,
+            "dist_river":        grid["dist_river"].values,
+            "rainfall_7day":     r7,
+            "rainfall_14day":    r7 * 1.8,
+            "upstream_rain_7d":  r7 * 0.6,
+            "upstream_rain_14d": r7 * 1.1,
+            "river_water_level": river,
+            "division_enc":      np.zeros(len(grid), dtype=int),
+        })
+        probs = model.predict_proba(X[FEATS])[:, 1] * dampen
+        results.append({
+            "label":        label,
+            "rainfall_7d":  r7,
+            "river_m":      river,
+            "dampen":       round(dampen, 3),
+            "flooded_pct":  round(float((probs >= THRESH).mean() * 100), 2),
+            "blocked":      False,
+        })
+
+    pcts = [r["flooded_pct"] for r in results]
+    monotone = all(pcts[i] <= pcts[i + 1] for i in range(len(pcts) - 1))
+    return {
+        "monotone_ok": monotone,
+        "status":      "OK" if monotone else "WARNING — not monotone, check training data",
+        "results":     results,
+    }
