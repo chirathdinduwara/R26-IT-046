@@ -21,7 +21,7 @@ import {
 
 import { Picker } from "@react-native-picker/picker";
 
-const API_URL = "http://192.168.8.101:8000/predict";
+const API_URL = "http://192.168.8.102:8000/predict";
 
 const TEXT = {
   en: {
@@ -141,7 +141,7 @@ export default function PaddyAdvisoryScreen() {
   };
 
   useEffect(() => {
-    fetch("http://192.168.8.101:8000/districts")
+    fetch("http://192.168.8.102:8000/districts")
       .then((res) => res.json())
       .then((data) => {
         setDistricts(data.districts);
@@ -152,7 +152,7 @@ export default function PaddyAdvisoryScreen() {
   useEffect(() => {
     if (!district) return;
 
-    fetch(`http://192.168.8.101:8000/cities/${district}`)
+    fetch(`http://192.168.8.102:8000/cities/${district}`)
       .then((res) => res.json())
       .then((data) => {
         setCities(data.cities);
