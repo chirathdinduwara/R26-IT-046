@@ -1,3 +1,8 @@
+geonix-backend/dengue-warning/api/.env.example
+geonix-backend/.venv/
+geonix-backend/__pycache__/
+geonix-backend/dengue-warning/api/__pycache__/
+
 # Dependencies
 */node_modules/
 */package-lock.json
