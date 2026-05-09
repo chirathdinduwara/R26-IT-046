@@ -25,6 +25,11 @@ const DEFAULT_LOCATION = { latitude: 6.9147, longitude: 79.8737 };
 const ALERT_KEY_PREFIX = "dengue-critical-alert";
 const LOCATION_TIMEOUT_MS = 15000;
 const LAST_KNOWN_MAX_AGE_MS = 15 * 60 * 1000;
+const MAP_TYPES = [
+  { type: "standard", icon: "map-outline", label: "Map" },
+  { type: "satellite", icon: "satellite-variant", label: "Satellite" },
+  { type: "hybrid", icon: "layers-outline", label: "Hybrid" },
+];
 
 const C = {
   bg: "#0D1117",
@@ -143,6 +148,7 @@ export default function DengueRiskScreen() {
   const [summary, setSummary] = useState(null);
   const [prevention, setPrevention] = useState(null);
   const [selectedWeek, setSelectedWeek] = useState("");
+  const [mapType, setMapType] = useState("hybrid");
 
   const loadDashboard = useCallback(async () => {
     setLoading(true);
@@ -303,8 +309,44 @@ export default function DengueRiskScreen() {
             ))}
           </ScrollView>
 
+          <View style={styles.mapTypeRow}>
+            {MAP_TYPES.map((opt, i) => {
+              const active = mapType === opt.type;
+              return (
+                <Pressable
+                  key={opt.type}
+                  style={[
+                    styles.mapTypeBtn,
+                    active && styles.mapTypeBtnActive,
+                    i < MAP_TYPES.length - 1 && styles.mapTypeBtnBorder,
+                  ]}
+                  onPress={() => setMapType(opt.type)}
+                >
+                  <MaterialCommunityIcons
+                    name={opt.icon}
+                    size={14}
+                    color={active ? C.amber : C.sub}
+                  />
+                  <Text
+                    style={[
+                      styles.mapTypeBtnText,
+                      active && styles.mapTypeBtnTextActive,
+                    ]}
+                  >
+                    {opt.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
           <Text style={styles.sectionTitle}>Risk map ({selectedWeek})</Text>
-          <MapView ref={mapRef} style={styles.map} initialRegion={initialRegion}>
+          <MapView
+            ref={mapRef}
+            style={styles.map}
+            initialRegion={initialRegion}
+            mapType={mapType}
+          >
             {mapAreas.map((area) => {
               const risk = areaRiskForWeek(area, selectedWeek);
               const colors = riskStyle(risk.risk_level);
@@ -371,6 +413,7 @@ export default function DengueRiskScreen() {
 
 const styles = StyleSheet.create({
   screenContainer: {
+    fontFamily: Platform.OS === "ios" ? "Courier New" : "monospace",
     flex: 1,
     backgroundColor: C.bg,
   },
@@ -504,9 +547,41 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "800",
   },
+  mapTypeRow: {
+    flexDirection: "row",
+    alignSelf: "flex-start",
+    backgroundColor: C.surfaceHi,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: C.border,
+    overflow: "hidden",
+    marginTop: 2,
+  },
+  mapTypeBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+  },
+  mapTypeBtnBorder: {
+    borderRightWidth: 1,
+    borderRightColor: C.border,
+  },
+  mapTypeBtnActive: {
+    backgroundColor: C.amberDim + "44",
+  },
+  mapTypeBtnText: {
+    color: C.sub,
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  mapTypeBtnTextActive: {
+    color: C.amber,
+  },
   map: {
     width: "100%",
-    height: 280,
+    height: 680,
     borderRadius: 12,
   },
   recenterButton: {
