@@ -14,7 +14,10 @@ import NavCard from "../../components/HomeScreen/NavCards";
 export default function HomeScreen() {
   const navigation = useNavigation();
 
-  const data = [{ id: "1", title: "FloodMap" }];
+  const data = [
+    { id: "1", title: "FloodMap" },
+    { id: "2", title: "FloodMapDivision" },
+  ];
 
   return (
     <View style={styles.container}>

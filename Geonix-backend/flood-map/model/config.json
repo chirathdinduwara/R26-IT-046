@@ -1,0 +1,140 @@
+{
+  "feature_cols": [
+    "elevation",
+    "dist_river",
+    "rainfall_7day",
+    "rainfall_14day",
+    "upstream_rain_7d",
+    "upstream_rain_14d",
+    "river_water_level",
+    "division_enc"
+  ],
+  "threshold": 0.7500000000000002,
+  "divisions": [
+    "Colombo",
+    "Dehiwala-Mount Lavinia",
+    "Hanwella",
+    "Homagama",
+    "Kaduwela",
+    "Kesbewa",
+    "Kolonnawa",
+    "Maharagama",
+    "Moratuwa",
+    "Padukka",
+    "Sri Jayawardanapura Kotte",
+    "Thimbirigasyaya"
+  ],
+  "river_levels": {
+    "2024-06-04": 7.73,
+    "2025-11-26": 9.54
+  },
+  "upstream_points": [
+    {
+      "name": "Kitulgala",
+      "lat": 6.99,
+      "lon": 80.4
+    },
+    {
+      "name": "Avissawella",
+      "lat": 6.949,
+      "lon": 80.21
+    }
+  ],
+  "augment_events": [
+    {
+      "date": "2010-05-21",
+      "river_level": 10.5,
+      "name": "May 2010 extreme SW monsoon flood"
+    },
+    {
+      "date": "2010-11-16",
+      "river_level": 8.8,
+      "name": "November 2010 NE monsoon flood"
+    },
+    {
+      "date": "2011-05-28",
+      "river_level": 8.2,
+      "name": "May 2011 SW monsoon flood"
+    },
+    {
+      "date": "2012-05-26",
+      "river_level": 8.6,
+      "name": "May 2012 SW monsoon flood"
+    },
+    {
+      "date": "2013-05-22",
+      "river_level": 8.4,
+      "name": "May 2013 SW monsoon flood"
+    },
+    {
+      "date": "2014-05-30",
+      "river_level": 9.1,
+      "name": "May 2014 SW monsoon flood"
+    },
+    {
+      "date": "2015-05-20",
+      "river_level": 8.0,
+      "name": "May 2015 SW monsoon urban flood"
+    },
+    {
+      "date": "2016-05-19",
+      "river_level": 10.8,
+      "name": "Cyclone Roanu May 2016"
+    },
+    {
+      "date": "2017-05-27",
+      "river_level": 9.6,
+      "name": "May 2017 SW monsoon flood"
+    },
+    {
+      "date": "2018-05-25",
+      "river_level": 7.8,
+      "name": "May 2018 urban flood"
+    },
+    {
+      "date": "2019-05-18",
+      "river_level": 8.3,
+      "name": "May 2019 SW monsoon flood"
+    },
+    {
+      "date": "2020-05-22",
+      "river_level": 8.7,
+      "name": "May 2020 SW monsoon flood"
+    },
+    {
+      "date": "2021-06-03",
+      "river_level": 8.5,
+      "name": "June 2021 SW monsoon flood"
+    },
+    {
+      "date": "2021-10-08",
+      "river_level": 8.1,
+      "name": "October 2021 NE monsoon flood"
+    },
+    {
+      "date": "2022-05-20",
+      "river_level": 9.2,
+      "name": "May 2022 SW monsoon flood"
+    },
+    {
+      "date": "2022-11-10",
+      "river_level": 8.6,
+      "name": "November 2022 NE monsoon flood"
+    },
+    {
+      "date": "2023-06-05",
+      "river_level": 8.9,
+      "name": "June 2023 SW monsoon flood"
+    },
+    {
+      "date": "2023-11-14",
+      "river_level": 8.2,
+      "name": "November 2023 NE monsoon flood"
+    }
+  ],
+  "train_events": 18,
+  "real_val_events": [
+    "2025-11-26",
+    "2024-06-04"
+  ]
+}

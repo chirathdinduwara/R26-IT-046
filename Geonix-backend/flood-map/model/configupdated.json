@@ -1,0 +1,45 @@
+{
+  "feature_cols": [
+    "elevation",
+    "dist_river",
+    "rainfall_7day",
+    "rainfall_14day",
+    "upstream_rain_7d",
+    "upstream_rain_14d",
+    "river_water_level",
+    "division_enc"
+  ],
+  "threshold": 0.5000000000000001,
+  "divisions": [
+    "Colombo",
+    "Dehiwala-Mount Lavinia",
+    "Hanwella",
+    "Homagama",
+    "Kaduwela",
+    "Kesbewa",
+    "Kolonnawa",
+    "Maharagama",
+    "Moratuwa",
+    "Padukka",
+    "Sri Jayawardanapura Kotte",
+    "Thimbirigasyaya"
+  ],
+  "river_levels": {
+    "2010-05-20": 10.5,
+    "2010-05-22": 10.2,
+    "2010-11-15": 8.8,
+    "2016-05-17": 10.8,
+    "2017-05-26": 9.6,
+    "2018-05-25": 7.35
+  },
+  "upstream_points": {
+    "Kitulgala": [
+      6.99,
+      80.42
+    ],
+    "Avissawella": [
+      6.95,
+      80.21
+    ]
+  }
+}
