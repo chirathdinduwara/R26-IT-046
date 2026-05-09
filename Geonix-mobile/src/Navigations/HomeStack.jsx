@@ -2,6 +2,7 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { Platform } from "react-native";
 import HomeScreen from "../screens/home/HomeScreen";
 import FloodMapScreen from "../screens/FloodMapScreen";
+import PaddyAdvisoryScreen from "../screens/PaddyAdvisoryScreen";
 import FloodMapScreenDivision from "../screens/FloodMapScreenDivision";
 
 const Stack = createNativeStackNavigator();
@@ -76,6 +77,21 @@ export default function HomeStack() {
         component={FloodMapScreenDivision}
         options={{
           title: "Division Predict",
+          headerTitleStyle: {
+            ...baseHeader.headerTitleStyle,
+          },
+          headerRight: () => (
+            <DistrictBadge label="TAP TO PREDICT" color={HEADER.teal} />
+          ),
+        }}
+      />
+
+      {/* ── Single-division / tap-to-predict map ──────────────────────── */}
+      <Stack.Screen
+        name="PaddyAdvisory"
+        component={PaddyAdvisoryScreen}
+        options={{
+          title: "Paddy Advisory",
           headerTitleStyle: {
             ...baseHeader.headerTitleStyle,
           },
