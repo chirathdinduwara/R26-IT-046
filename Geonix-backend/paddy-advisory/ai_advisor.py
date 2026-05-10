@@ -64,7 +64,7 @@ Keep each language under 140 words.
 
         text = response.text.strip()
 
-        # remove possible markdown code fences
+        
         text = re.sub(r"^```json\s*", "", text)
         text = re.sub(r"^```\s*", "", text)
         text = re.sub(r"\s*```$", "", text)
