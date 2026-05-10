@@ -10,11 +10,11 @@ from ai_advisor import generate_ai_advice
 
 app = FastAPI()
 
-# -------- LOAD MODEL --------
-pipeline = joblib.load("model/paddy_pipeline.pkl")
+
+model = joblib.load("model/paddy_model_improved_1.pkl")
 
 
-# -------- INPUT SCHEMA --------
+
 class FarmerInput(BaseModel):
     district: str
     city: str
@@ -23,7 +23,7 @@ class FarmerInput(BaseModel):
     crop_week: int
 
 
-# -------- LOCATION INFO --------
+
 def get_location_info(district: str, city: str):
     locations = pd.read_csv("data/locations.csv")
 
@@ -73,7 +73,7 @@ def get_cities(district: str):
     return {"cities": cities}
 
 
-# -------- SOIL DATA --------
+
 def get_soil(district):
     soil = pd.read_csv("data/soil_clean.csv")
 
@@ -93,7 +93,7 @@ def get_soil(district):
     }
 
 
-# -------- CULTIVATION HISTORY --------
+
 def get_cultivation(district, season):
     df = pd.read_csv("data/final_dataset.csv")
 
@@ -125,7 +125,7 @@ def get_cultivation(district, season):
     }
 
 
-# -------- HISTORICAL YIELD FEATURES --------
+
 def get_yield_history_features(district, season):
     history = pd.read_csv("data/final_dataset.csv")
 
@@ -151,19 +151,16 @@ def get_yield_history_features(district, season):
 
 
 
-
-
-# -------- RISK --------
 def calculate_risk(rain, temp):
     if rain < 20:
-        return "High Drought Risk"
-    elif rain > 120:
+        return "Drought Risk"
+    elif rain > 160:
         return "Flood Risk"
     elif temp > 32:
         return "Heat Stress"
     return "Low Risk"
 
-# -------- AUTO WATER CONDITION --------
+
 def detect_water_condition(total_rainfall, zone):
 
     if total_rainfall >= 80:
@@ -173,7 +170,7 @@ def detect_water_condition(total_rainfall, zone):
         return "Rainfed"
 
     return "Irrigated"
-# -------- FERTILIZER RECOMMENDATION --------
+
 def recommend_fertilizer(zone, water_condition, crop_duration, crop_week):
 
     rules = pd.read_csv("data/fertilizer/fertilizer_rules.csv")
@@ -254,7 +251,7 @@ def recommend_fertilizer(zone, water_condition, crop_duration, crop_week):
         "Zinc_kg_ha": float(row["Zinc_kg_ha"])
     }
 
-# -------- API --------
+
 @app.post("/predict")
 def predict(data: FarmerInput):
 
@@ -314,7 +311,7 @@ def predict(data: FarmerInput):
 
     df = pd.DataFrame([input_data])
 
-    # feature engineering
+    
     df["temp_range"] = df["max_temp"] - df["min_temp"]
 
     df["rain_per_day"] = (
@@ -332,11 +329,17 @@ def predict(data: FarmerInput):
         (df["total_rainfall"] + 1)
     )
 
+    df["rain_temp_interaction"] = df["total_rainfall"] * df["avg_temp"]
+
+    df["humidity_effect"] = df["rainy_days"] * df["avg_temp"]
+
+    df["rainfall_deviation"] = 0
+
    
 
     
 
-    predicted = float(pipeline.predict(df)[0])
+    predicted = float(model.predict(df)[0])
 
     production = float((predicted * data.farm_size_hectare) / 1000)
     

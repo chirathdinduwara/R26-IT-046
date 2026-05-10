@@ -81,8 +81,6 @@ const TEXT = {
   },
 };
 
-// change if IP changes
-
 export default function PaddyAdvisoryScreen() {
   const [districts, setDistricts] = useState([]);
   const [cities, setCities] = useState([]);
