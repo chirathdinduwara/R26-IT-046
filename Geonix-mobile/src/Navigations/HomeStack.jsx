@@ -2,6 +2,7 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { Platform } from "react-native";
 import HomeScreen from "../screens/home/HomeScreen";
 import FloodMapScreen from "../screens/FloodMapScreen";
+import PaddyAdvisoryScreen from "../screens/PaddyAdvisoryScreen";
 import FloodMapScreenDivision from "../screens/FloodMapScreenDivision";
 import DengueRiskScreen from "../screens/DengueRiskScreen";
 import DengueChatbotScreen from "../screens/DengueChatbotScreen";
@@ -23,20 +24,18 @@ const baseHeader = {
   headerStyle: {
     backgroundColor: HEADER.bg,
   },
-  headerTintColor: HEADER.amber, // back-arrow colour
+  headerTintColor: HEADER.amber,
   headerTitleStyle: {
     color: HEADER.text,
     fontSize: 15,
     fontWeight: "700",
     letterSpacing: 0.3,
   },
-  headerShadowVisible: false, // removes iOS drop-shadow
-  headerBackTitleVisible: false, // iOS: hide "Back" text
-  // Hairline border under the header
+  headerShadowVisible: false,
+  headerBackTitleVisible: false,
   headerBottomBorderVisible: true,
   contentStyle: { backgroundColor: "#0D1117" },
 
-  // Android ripple on back button
   ...(Platform.OS === "android" && {
     headerBackButtonMenuEnabled: false,
   }),
@@ -45,14 +44,12 @@ const baseHeader = {
 export default function HomeStack() {
   return (
     <Stack.Navigator screenOptions={baseHeader}>
-      {/* ── Home — no header ───────────────────────────────────────────── */}
       <Stack.Screen
         name="Home"
         component={HomeScreen}
         options={{ headerShown: false }}
       />
 
-      {/* ── Full district flood map ────────────────────────────────────── */}
       <Stack.Screen
         name="FloodMap"
         component={FloodMapScreen}
@@ -61,25 +58,35 @@ export default function HomeStack() {
           headerTitleStyle: {
             ...baseHeader.headerTitleStyle,
           },
-          // Amber left-border accent via a custom hairline
           headerStyle: {
             ...baseHeader.headerStyle,
-            // RN stack doesn't support borderLeft natively, so we rely on
-            // the consistent bg + bottom border for the branded look
           },
-          // Subtle subtitle via headerRight badge
           headerRight: () => (
             <DistrictBadge label="ALL DIVISIONS" color={HEADER.amber} />
           ),
         }}
       />
 
-      {/* ── Single-division / tap-to-predict map ──────────────────────── */}
       <Stack.Screen
         name="FloodMapDivision"
         component={FloodMapScreenDivision}
         options={{
           title: "Division Predict",
+          headerTitleStyle: {
+            ...baseHeader.headerTitleStyle,
+          },
+          headerRight: () => (
+            <DistrictBadge label="TAP TO PREDICT" color={HEADER.teal} />
+          ),
+        }}
+      />
+
+      {/* ── Paddy Advisory ──────────────────────── */}
+      <Stack.Screen
+        name="PaddyAdvisory"
+        component={PaddyAdvisoryScreen}
+        options={{
+          title: "Paddy Advisory",
           headerTitleStyle: {
             ...baseHeader.headerTitleStyle,
           },
@@ -148,7 +155,6 @@ export default function HomeStack() {
   );
 }
 
-// ── Small pill badge shown in header right ────────────────────────────────────
 import { View, Text, StyleSheet } from "react-native";
 
 function DistrictBadge({ label, color }) {
