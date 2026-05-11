@@ -82,6 +82,7 @@ export default function HomeStack() {
       />
 
       {/* ── Paddy Advisory ──────────────────────── */}
+      {/* ── Single-division / tap-to-predict map ──────────────────────── */}
       <Stack.Screen
         name="PaddyAdvisory"
         component={PaddyAdvisoryScreen}

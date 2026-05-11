@@ -1,0 +1,21 @@
+Zone,Water_Condition,Crop_Duration,Week,Urea_kg_ha,TSP_kg_ha,MOP_kg_ha,Zinc_kg_ha
+Wet,Irrigated,3 Month,Basic,0,35,0,5
+Wet,Irrigated,3 Month,2 Weeks,20,0,0,0
+Wet,Irrigated,3 Month,4 Weeks,55,0,25,0
+Wet,Irrigated,3 Month,6 Weeks,45,0,25,0
+Wet,Irrigated,3 Month,7 Weeks,20,0,0,0
+Wet,Rainfed,3 Month,Basic,0,55,0,5
+Wet,Rainfed,3 Month,2 Weeks,25,0,35,0
+Wet,Rainfed,3 Month,4 Weeks,30,0,45,0
+Wet,Rainfed,3 Month,6 Weeks,25,0,30,0
+Wet,Rainfed,3 Month,7 Weeks,20,0,0,0
+Dry,Irrigated,3 Month,Basic,0,55,0,5
+Dry,Irrigated,3 Month,2 Weeks,50,0,0,0
+Dry,Irrigated,3 Month,4 Weeks,75,0,25,0
+Dry,Irrigated,3 Month,6 Weeks,65,0,35,0
+Dry,Irrigated,3 Month,7 Weeks,35,0,0,0
+Dry,Rainfed,3 Month,Basic,0,35,0,5
+Dry,Rainfed,3 Month,2 Weeks,30,0,0,0
+Dry,Rainfed,3 Month,4 Weeks,65,0,25,0
+Dry,Rainfed,3 Month,6 Weeks,50,0,25,0
+Dry,Rainfed,3 Month,7 Weeks,30,0,0,0
