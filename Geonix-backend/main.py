@@ -12,6 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 BASE_DIR = Path(__file__).resolve().parent
 FLOOD_MAIN_PATH = BASE_DIR / "flood-map" / "main.py"
+SAFE_ROUTE_MAIN_PATH = BASE_DIR / "safe_route" / "main.py"
 DENGUE_ROOT = BASE_DIR / "dengue-warning"
 
 
@@ -43,6 +44,19 @@ except ModuleNotFoundError as exc:
     ) from exc
 flood_app: FastAPI = flood_module.app
 
+try:
+    safe_route_module = _load_module_from_file(
+        module_name="geonix_safe_route_main",
+        file_path=SAFE_ROUTE_MAIN_PATH,
+        working_dir=SAFE_ROUTE_MAIN_PATH.parent,
+    )
+except ModuleNotFoundError as exc:
+    raise RuntimeError(
+        "Safe route backend dependencies are missing. Install safe_route requirements in the same Python environment "
+        "(for example: fastapi, pydantic, httpx, scikit-learn, joblib, numpy, uvicorn)."
+    ) from exc
+safe_route_router = safe_route_module.router
+
 if str(DENGUE_ROOT) not in sys.path:
     sys.path.insert(0, str(DENGUE_ROOT))
 
@@ -63,6 +77,9 @@ app.add_middleware(
 
 # Keep flood map endpoints exactly as they are (/predict/full, /predict/subdist, etc.).
 app.include_router(flood_app.router)
+
+# Add safe route endpoints under /safe-route.
+app.include_router(safe_route_router)
 
 # Add dengue warning endpoints on the same backend process.
 app.include_router(dengue_router)

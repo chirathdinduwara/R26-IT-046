@@ -5,6 +5,8 @@ import FloodMapScreen from "../screens/FloodMapScreen";
 import FloodMapScreenDivision from "../screens/FloodMapScreenDivision";
 import DengueRiskScreen from "../screens/DengueRiskScreen";
 import DengueChatbotScreen from "../screens/DengueChatbotScreen";
+import SafeNavigationScreen from "../screens/SafeNavigationScreen";
+import SafeNavigationDemoScreen from "../screens/SafeNavigationDemoScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -111,6 +113,34 @@ export default function HomeStack() {
           },
           headerRight: () => (
             <DistrictBadge label="CHAT PREVIEW" color={HEADER.amber} />
+          ),
+        }}
+      />
+
+      <Stack.Screen
+        name="SafeNavigation"
+        component={SafeNavigationScreen}
+        options={{
+          title: "Safe Navigation",
+          headerTitleStyle: {
+            ...baseHeader.headerTitleStyle,
+          },
+          headerRight: () => (
+            <DistrictBadge label="SAFE ROUTES" color={HEADER.teal} />
+          ),
+        }}
+      />
+
+      <Stack.Screen
+        name="SafeNavigationDemo"
+        component={SafeNavigationDemoScreen}
+        options={{
+          title: "Safe Navigation Demo",
+          headerTitleStyle: {
+            ...baseHeader.headerTitleStyle,
+          },
+          headerRight: () => (
+            <DistrictBadge label="DEMO MODE" color={HEADER.amber} />
           ),
         }}
       />
