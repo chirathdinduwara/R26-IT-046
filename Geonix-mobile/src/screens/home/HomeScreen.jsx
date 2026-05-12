@@ -81,6 +81,17 @@ const NAV_ITEMS = [
     dimBg: "#1A1200",
     tag: null,
   },
+  {
+    id: "6",
+    title: "Safe Navigation Demo",
+    subtitle: "Manual weather, traffic, and flood point simulation",
+    route: "SafeNavigationDemo",
+    icon: "flask-outline",
+    accent: "#FFB74D",
+    dimBg: "#1E1306",
+    tag: "DEMO",
+    tagColor: "#FFB74D",
+  },
 ];
 
 // ── Nav card ──────────────────────────────────────────────────────────────────

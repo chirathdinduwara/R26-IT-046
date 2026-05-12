@@ -1,93 +1,91 @@
-#Updates
-# main.py
+from __future__ import annotations
+
+import importlib.util
+import os
+import sys
+from pathlib import Path
+from typing import Any
+
 from fastapi import FastAPI
-import geopandas as gpd
-import pandas as pd
-import numpy as np
-import joblib
-import json
-import requests
-from datetime import datetime, timedelta
+from fastapi.middleware.cors import CORSMiddleware
 
-app = FastAPI()
-model = joblib.load("model/flood_model2.pkl")
-grid  = gpd.read_file("model/grid.geojson").to_crs(epsg=4326)
 
-with open("model/feature_cols.json") as f:
-    FEATURE_COLS = json.load(f)
+BASE_DIR = Path(__file__).resolve().parent
+FLOOD_MAIN_PATH = BASE_DIR / "flood-map" / "main.py"
+SAFE_ROUTE_MAIN_PATH = BASE_DIR / "safe_route" / "main.py"
+DENGUE_ROOT = BASE_DIR / "dengue-warning"
 
-LAT, LON = 7.0, 79.97
-UPSTREAM_LAT, UPSTREAM_LON = 7.50, 80.35
 
-def get_recent_rainfall(lat, lon, days=7):
-    today = datetime.utcnow()
-    start = (today - timedelta(days=days)).strftime("%Y-%m-%d")
-    end   = today.strftime("%Y-%m-%d")
-    url   = "https://archive-api.open-meteo.com/v1/archive"
-    r = requests.get(url, params={
-        "latitude": lat, "longitude": lon,
-        "start_date": start, "end_date": end,
-        "daily": "precipitation_sum",
-        "timezone": "Asia/Colombo",
-    }, timeout=10)
-    precip = r.json()["daily"]["precipitation_sum"]
-    precip = [p or 0 for p in precip]
-    return {
-        "day":  precip[-1] if precip else 0,
-        "3day": sum(precip[-3:]),
-        "7day": sum(precip[-7:]),
-    }
+def _load_module_from_file(module_name: str, file_path: Path, working_dir: Path | None = None) -> Any:
+    spec = importlib.util.spec_from_file_location(module_name, file_path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"Cannot load module from {file_path}")
+    module = importlib.util.module_from_spec(spec)
+    previous_dir = Path.cwd()
+    try:
+        if working_dir is not None:
+            os.chdir(working_dir)
+        spec.loader.exec_module(module)
+    finally:
+        os.chdir(previous_dir)
+    return module
 
-@app.get("/predict")
-def predict_flood(
-    rainfall_3day: float = None,   # override if provided; else fetched from API
-    threshold: float = 0.45
-):
-    # Fetch live rainfall if not overridden
-    local    = get_recent_rainfall(LAT, LON)
-    upstream = get_recent_rainfall(UPSTREAM_LAT, UPSTREAM_LON, days=3)
 
-    r3day = rainfall_3day if rainfall_3day is not None else local["3day"]
+try:
+    flood_module = _load_module_from_file(
+        module_name="geonix_flood_main",
+        file_path=FLOOD_MAIN_PATH,
+        working_dir=FLOOD_MAIN_PATH.parent,
+    )
+except ModuleNotFoundError as exc:
+    raise RuntimeError(
+        "Flood backend dependencies are missing. Install flood requirements in the same Python environment "
+        "(for example: geopandas, shapely, fiona, pyproj, httpx, scikit-learn, pandas, numpy, fastapi, uvicorn)."
+    ) from exc
+flood_app: FastAPI = flood_module.app
 
-    data = grid.copy()
-    data["rainfall_day"]            = local["day"]
-    data["rainfall_3day"]           = r3day
-    data["rainfall_7day"]           = local["7day"]
-    data["upstream_rainfall_3day"]  = upstream["3day"]
+try:
+    safe_route_module = _load_module_from_file(
+        module_name="geonix_safe_route_main",
+        file_path=SAFE_ROUTE_MAIN_PATH,
+        working_dir=SAFE_ROUTE_MAIN_PATH.parent,
+    )
+except ModuleNotFoundError as exc:
+    raise RuntimeError(
+        "Safe route backend dependencies are missing. Install safe_route requirements in the same Python environment "
+        "(for example: fastapi, pydantic, httpx, scikit-learn, joblib, numpy, uvicorn)."
+    ) from exc
+safe_route_router = safe_route_module.router
 
-    X = data[FEATURE_COLS].fillna(0)
-    data["flood_prob"] = model.predict_proba(X)[:, 1]
+if str(DENGUE_ROOT) not in sys.path:
+    sys.path.insert(0, str(DENGUE_ROOT))
 
-    flood_data = data[data["flood_prob"] > threshold].copy()
+from api.dengue_router import router as dengue_router  # noqa: E402
+from api.main import health as dengue_health  # noqa: E402
+from api.main import score as dengue_score  # noqa: E402
+from api.schemas import RiskScoreRequest, RiskScoreResponse  # noqa: E402
 
-    # Dissolve adjacent cells into contiguous zones
-    flood_proj = flood_data.to_crs(epsg=5235)
-    flood_proj["geometry"] = flood_proj.geometry.buffer(15)
-    dissolved = flood_proj.dissolve().explode(index_parts=False).reset_index(drop=True)
-    dissolved = dissolved[dissolved.geometry.area > 80_000]  # remove tiny patches
-    dissolved["geometry"] = dissolved.geometry.buffer(-15)
-    dissolved = dissolved.to_crs(epsg=4326)
 
-    geojson = {"type": "FeatureCollection", "features": [],
-               "metadata": {
-                   "rainfall_day_mm": local["day"],
-                   "rainfall_3day_mm": r3day,
-                   "rainfall_7day_mm": local["7day"],
-                   "upstream_3day_mm": upstream["3day"],
-               }}
+app = FastAPI(title="Geonix Unified Backend", version="1.0.0")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-    for _, row in dissolved.iterrows():
-        geom = row.geometry
-        if geom is None or geom.is_empty:
-            continue
-        polys = [geom] if geom.geom_type == "Polygon" else list(geom.geoms)
-        for poly in polys:
-            rings = [[[x, y] for x, y in poly.exterior.coords]]
-            rings += [[[x, y] for x, y in i.coords] for i in poly.interiors]
-            geojson["features"].append({
-                "type": "Feature",
-                "properties": {"flood_risk": "high"},
-                "geometry": {"type": "Polygon", "coordinates": rings}
-            })
+# Keep flood map endpoints exactly as they are (/predict/full, /predict/subdist, etc.).
+app.include_router(flood_app.router)
 
-    return geojson
+# Add safe route endpoints under /safe-route.
+app.include_router(safe_route_router)
+
+# Add dengue warning endpoints on the same backend process.
+app.include_router(dengue_router)
+app.post("/score", response_model=RiskScoreResponse)(dengue_score)
+
+
+@app.get("/dengue/health")
+def dengue_health_check() -> dict[str, Any]:
+    return dengue_health()

@@ -33,7 +33,7 @@ export default function FloodMapScreen() {
   const fade = useRef(new Animated.Value(0)).current;
   const toastMsg = useRef("");
 
-  const API_URL = "http://192.168.8.100:8000";
+  const API_URL = "http://192.168.199.22:8000";
 
   // ── Toast ──────────────────────────────────────────────────────────────────
   const toast = (msg) => {

@@ -18,7 +18,7 @@ import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
 import DIVISION_COORDS from "../../assets/col_divs/devCords";
 
 export default function FloodMapScreenDivision() {
-  const API_URL = "http://192.168.8.100:8000";
+  const API_URL = "http://192.168.199.22:8000";
 
   const [geojson, setGeojson] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
