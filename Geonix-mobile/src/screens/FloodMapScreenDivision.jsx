@@ -15,10 +15,10 @@ import MapView, { Polygon, Marker } from "react-native-maps";
 import { useRef, useState } from "react";
 import * as Location from "expo-location";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
+import { FLOOD_API_URL } from "../config/api";
 import DIVISION_COORDS from "../../assets/col_divs/devCords";
 
 export default function FloodMapScreenDivision() {
-  const API_URL = "http://192.168.199.22:8000";
 
   const [geojson, setGeojson] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
@@ -157,7 +157,7 @@ export default function FloodMapScreenDivision() {
         river_water_level: parseFloat(river),
       };
 
-      const res = await fetch(`${API_URL}/predict/subdist`, {
+      const res = await fetch(`${FLOOD_API_URL}/predict/subdist`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),

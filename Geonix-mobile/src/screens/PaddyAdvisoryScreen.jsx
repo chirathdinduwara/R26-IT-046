@@ -20,8 +20,7 @@ import {
 } from "lucide-react-native";
 
 import { Picker } from "@react-native-picker/picker";
-
-const API_URL = "http://192.168.8.102:8000/predict";
+import { PADDY_API_URL } from "../config/api";
 
 const TEXT = {
   en: {
@@ -112,7 +111,7 @@ export default function PaddyAdvisoryScreen() {
         crop_week: Number(cropWeek),
       };
 
-      const res = await fetch(API_URL, {
+      const res = await fetch(`${PADDY_API_URL}/predict`, {
         method: "POST",
         headers: {
           Accept: "application/json",
@@ -139,23 +138,33 @@ export default function PaddyAdvisoryScreen() {
   };
 
   useEffect(() => {
-    fetch("http://192.168.8.102:8000/districts")
-      .then((res) => res.json())
-      .then((data) => {
+    async function loadDistricts() {
+      try {
+        const res = await fetch(`${PADDY_API_URL}/districts`);
+        const data = await res.json();
         setDistricts(data.districts);
         setDistrict(data.districts[0]);
-      });
+      } catch (err) {
+        console.log("Load districts error:", err);
+      }
+    }
+    loadDistricts();
   }, []);
 
   useEffect(() => {
     if (!district) return;
 
-    fetch(`http://192.168.8.102:8000/cities/${district}`)
-      .then((res) => res.json())
-      .then((data) => {
+    async function loadCities() {
+      try {
+        const res = await fetch(`${PADDY_API_URL}/cities/${district}`);
+        const data = await res.json();
         setCities(data.cities);
         setCity(data.cities[0]);
-      });
+      } catch (err) {
+        console.log("Load cities error:", err);
+      }
+    }
+    loadCities();
   }, [district]);
 
   const renderInputScreen = () => (

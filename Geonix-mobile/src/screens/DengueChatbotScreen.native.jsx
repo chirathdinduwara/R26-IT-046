@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -9,7 +10,9 @@ import {
   TextInput,
   View,
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { DENGUE_API_URL } from "../config/api";
 
 const ADVICE_TABS = [
   { key: "do_now", label: "What to do now" },
@@ -53,6 +56,21 @@ function normalizeAdvice(data, key) {
   return data[key];
 }
 
+function normalizeBaseUrl(value) {
+  if (typeof value !== "string") return "";
+  let normalized = value.trim();
+  if (!normalized) return "";
+  normalized = normalized.replace(/^httpx:\/\//i, "http://").replace(/^httpsx:\/\//i, "https://");
+  if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(normalized)) {
+    normalized = `http://${normalized}`;
+  }
+  return normalized.replace(/\/+$/, "");
+}
+
+async function resolveApiBaseUrl() {
+  return normalizeBaseUrl(DENGUE_API_URL);
+}
+
 export default function DengueChatbotScreen({ route }) {
   const prevention = useMemo(() => {
     const source = route?.params?.prevention || {};
@@ -65,32 +83,88 @@ export default function DengueChatbotScreen({ route }) {
 
   const [activeTab, setActiveTab] = useState("do_now");
   const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
   const [messages, setMessages] = useState([
     {
       id: "welcome",
       role: "assistant",
-      text: "Hi! I can help with dengue safety guidance. Send a message to get recommendation tabs.",
+      text: "Hi! I am your Dengue Safety AI assistant. Ask me anything about symptoms, local prevention, or guidelines.",
       showAdvice: false,
     },
   ]);
 
-  const sendMessage = () => {
+  const sendMessage = async () => {
     const prompt = input.trim();
-    if (!prompt) {
+    if (!prompt || loading) {
       return;
     }
     const timeId = Date.now();
+    
+    // Add user message
     setMessages((prev) => [
       ...prev,
-      { id: `u-${timeId}`, role: "user", text: prompt, showAdvice: false },
-      {
-        id: `a-${timeId}`,
-        role: "assistant",
-        text: "Here are recommended dengue actions based on your request.",
-        showAdvice: true,
-      },
+      { id: `u-${timeId}`, role: "user", text: prompt },
     ]);
     setInput("");
+    setLoading(true);
+
+    try {
+      const baseUrl = await resolveApiBaseUrl();
+      const history = messages
+        .filter((m) => m.id !== "welcome")
+        .map((m) => ({
+          role: m.role,
+          text: m.text,
+        }));
+
+      const response = await fetch(`${baseUrl}/dengue/chat`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          message: prompt,
+          history: history,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to get chat response");
+      }
+
+      const resData = await response.json();
+      
+      // Suggest prevention guides if the query contains breeding, prevention, or habits
+      const pLower = prompt.toLowerCase();
+      const showAdvice = pLower.includes("prevent") || 
+                         pLower.includes("breed") || 
+                         pLower.includes("water") || 
+                         pLower.includes("habit") || 
+                         pLower.includes("reduce") || 
+                         pLower.includes("symptom");
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `a-${timeId}`,
+          role: "assistant",
+          text: resData.response,
+          showAdvice: showAdvice,
+        },
+      ]);
+    } catch (err) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `a-${timeId}`,
+          role: "assistant",
+          text: "I had trouble connecting to the Dengue Safety API. Please verify your connection and try again.",
+          showAdvice: false,
+        },
+      ]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -107,9 +181,9 @@ export default function DengueChatbotScreen({ route }) {
           />
         </View>
         <View style={styles.headerTextWrap}>
-          <Text style={styles.headerTitle}>Dengue Assistant (UI Preview)</Text>
+          <Text style={styles.headerTitle}>Dengue Safety AI Assistant</Text>
           <Text style={styles.headerSub}>
-            Gemini integration can be plugged in later without UI changes.
+            Live recommendations from Gemini based on local health guidelines.
           </Text>
         </View>
       </View>
@@ -171,6 +245,13 @@ export default function DengueChatbotScreen({ route }) {
             ) : null}
           </View>
         ))}
+
+        {loading ? (
+          <View style={[styles.messageBubble, styles.assistantBubble, styles.loadingBubble]}>
+            <ActivityIndicator size="small" color={C.amber} />
+            <Text style={[styles.messageText, { color: C.sub, marginLeft: 8 }]}>AI is thinking...</Text>
+          </View>
+        ) : null}
       </ScrollView>
 
       <View style={styles.inputRow}>
@@ -181,8 +262,13 @@ export default function DengueChatbotScreen({ route }) {
           placeholderTextColor={C.sub}
           style={styles.input}
           multiline
+          editable={!loading}
         />
-        <Pressable style={styles.sendButton} onPress={sendMessage}>
+        <Pressable 
+          style={[styles.sendButton, loading && { opacity: 0.6 }]} 
+          onPress={sendMessage}
+          disabled={loading}
+        >
           <MaterialCommunityIcons name="send" size={18} color={C.bg} />
         </Pressable>
       </View>
@@ -238,20 +324,25 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   messageBubble: {
-    maxWidth: "95%",
+    maxWidth: "90%",
     borderRadius: 14,
-    padding: 10,
+    padding: 12,
     borderWidth: 1,
   },
   userBubble: {
     alignSelf: "flex-end",
-    backgroundColor: C.amberDim + "55",
+    backgroundColor: C.amberDim + "35",
     borderColor: C.amber,
   },
   assistantBubble: {
     alignSelf: "flex-start",
     backgroundColor: C.surface,
     borderColor: C.border,
+  },
+  loadingBubble: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 10,
   },
   messageText: {
     lineHeight: 19,
