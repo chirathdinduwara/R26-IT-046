@@ -14,6 +14,15 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Location from "expo-location";
 import MapView, { Marker, Polygon } from "react-native-maps";
+import * as Notifications from "expo-notifications";
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
 
 import {
   fetchDengueMap,
@@ -115,6 +124,31 @@ async function resolveCurrentLocation() {
   }
 }
 
+async function requestNotificationPermission() {
+  const { status: existingStatus } = await Notifications.getPermissionsAsync();
+  let finalStatus = existingStatus;
+  if (existingStatus !== "granted") {
+    const { status } = await Notifications.requestPermissionsAsync();
+    finalStatus = status;
+  }
+  return finalStatus === "granted";
+}
+
+async function triggerLocalNotification(title, body) {
+  try {
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title,
+        body,
+        sound: true,
+      },
+      trigger: null,
+    });
+  } catch {
+    // Ignore trigger failure
+  }
+}
+
 async function showCriticalAlertOncePerDay(summary) {
   if (!summary?.alert?.is_critical) {
     return;
@@ -124,6 +158,14 @@ async function showCriticalAlertOncePerDay(summary) {
   const alreadyShown = await AsyncStorage.getItem(key);
   if (alreadyShown === today) {
     return;
+  }
+  try {
+    const granted = await requestNotificationPermission();
+    if (granted) {
+      await triggerLocalNotification("Critical Dengue Risk Alert", summary.alert.message);
+    }
+  } catch {
+    // Ignore notification failures
   }
   Alert.alert("Critical dengue risk", summary.alert.message);
   await AsyncStorage.setItem(key, today);
@@ -251,7 +293,68 @@ export default function DengueRiskScreen() {
             {percentage(summary?.current_risk?.risk_score)} (
             {levelLabel(summary?.current_risk?.risk_level)})
           </Text>
+
+          {summary?.alert?.message ? (
+            <View style={[
+              styles.alertBanner,
+              summary.alert.is_critical ? styles.alertBannerCritical : styles.alertBannerNormal
+            ]}>
+              <MaterialCommunityIcons 
+                name={summary.alert.is_critical ? "alert-decagram-outline" : "checkbox-marked-circle-outline"} 
+                size={16} 
+                color={summary.alert.is_critical ? "#C62828" : "#2E7D32"} 
+              />
+              <Text style={styles.alertText}>{summary.alert.message}</Text>
+            </View>
+          ) : null}
         </View>
+
+        {summary?.weather ? (
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Real-Time Climate Indicators</Text>
+            <View style={styles.weatherGrid}>
+              <View style={styles.weatherItem}>
+                <MaterialCommunityIcons name="thermometer" size={18} color={C.amber} />
+                <Text style={styles.weatherValue}>
+                  {summary.weather.temperature_c ? `${summary.weather.temperature_c.toFixed(1)}°C` : "--"}
+                </Text>
+                <Text style={styles.weatherLabel}>Temperature</Text>
+              </View>
+              <View style={styles.weatherItem}>
+                <MaterialCommunityIcons name="water-outline" size={18} color={C.amber} />
+                <Text style={styles.weatherValue}>
+                  {summary.weather.humidity_pct ? `${Math.round(summary.weather.humidity_pct)}%` : "--"}
+                </Text>
+                <Text style={styles.weatherLabel}>Humidity</Text>
+              </View>
+              <View style={styles.weatherItem}>
+                <MaterialCommunityIcons name="weather-pouring" size={18} color={C.amber} />
+                <Text style={styles.weatherValue}>
+                  {summary.weather.rainfall_mm ? `${summary.weather.rainfall_mm.toFixed(1)} mm` : "0.0 mm"}
+                </Text>
+                <Text style={styles.weatherLabel}>Rain Today</Text>
+              </View>
+              <View style={styles.weatherItem}>
+                <MaterialCommunityIcons name="calendar-range-outline" size={18} color={C.amber} />
+                <Text style={styles.weatherValue}>
+                  {summary.weather.rainfall_7day_sum ? `${summary.weather.rainfall_7day_sum.toFixed(1)} mm` : "--"}
+                </Text>
+                <Text style={styles.weatherLabel}>7-Day Rain</Text>
+              </View>
+            </View>
+          </View>
+        ) : null}
+
+        <Pressable style={styles.actionCard} onPress={openDengueChat}>
+          <View style={styles.actionCardIconWrap}>
+            <MaterialCommunityIcons name="robot-happy-outline" size={24} color={C.amber} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.actionCardTitle}>Dengue AI Safety Assistant</Text>
+            <Text style={styles.actionCardSub}>Ask about symptoms, prevention, or local guidance.</Text>
+          </View>
+          <MaterialCommunityIcons name="chevron-right" size={20} color={C.sub} />
+        </Pressable>
 
         <View style={styles.rowCards}>
           <View style={styles.smallCard}>
@@ -630,5 +733,87 @@ const styles = StyleSheet.create({
     color: C.bg,
     fontSize: 13,
     fontWeight: "800",
+  },
+  weatherGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: 4,
+  },
+  weatherItem: {
+    flex: 1,
+    minWidth: "45%",
+    backgroundColor: C.surfaceHi,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: C.border,
+    padding: 10,
+    alignItems: "center",
+    gap: 4,
+  },
+  weatherLabel: {
+    fontSize: 10,
+    color: C.sub,
+    fontWeight: "600",
+  },
+  weatherValue: {
+    fontSize: 14,
+    color: C.text,
+    fontWeight: "800",
+  },
+  alertBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    marginTop: 10,
+  },
+  alertBannerCritical: {
+    backgroundColor: "rgba(198, 40, 40, 0.15)",
+    borderColor: "#C62828",
+  },
+  alertBannerNormal: {
+    backgroundColor: "rgba(46, 125, 50, 0.12)",
+    borderColor: "#2E7D32",
+  },
+  alertText: {
+    flex: 1,
+    color: C.text,
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: "600",
+  },
+  actionCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: C.surface,
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: 14,
+    padding: 14,
+    gap: 12,
+    marginTop: 4,
+  },
+  actionCardIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: C.surfaceHi,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: C.border,
+  },
+  actionCardTitle: {
+    color: C.text,
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  actionCardSub: {
+    color: C.sub,
+    fontSize: 12,
+    marginTop: 2,
   },
 });

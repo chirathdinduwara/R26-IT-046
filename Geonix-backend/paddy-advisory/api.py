@@ -1,4 +1,5 @@
-from fastapi import FastAPI
+from pathlib import Path
+from fastapi import APIRouter
 from pydantic import BaseModel
 import joblib
 import pandas as pd
@@ -8,10 +9,12 @@ from weather_api import get_forecast_weather
 from crop_calendar import get_crop_calendar_rules
 from ai_advisor import generate_ai_advice
 
-app = FastAPI()
+BASE_DIR = Path(__file__).resolve().parent
+
+router = APIRouter(tags=["paddy-advisory"])
 
 
-model = joblib.load("model/paddy_model_improved_1.pkl")
+model = joblib.load(BASE_DIR / "model/paddy_model_improved_1.pkl")
 
 
 
@@ -25,7 +28,7 @@ class FarmerInput(BaseModel):
 
 
 def get_location_info(district: str, city: str):
-    locations = pd.read_csv("data/locations.csv")
+    locations = pd.read_csv(BASE_DIR / "data/locations.csv")
 
     locations["district"] = locations["district"].astype(str).str.strip().str.lower()
     locations["city"] = locations["city"].astype(str).str.strip().str.lower()
@@ -51,16 +54,16 @@ def get_location_info(district: str, city: str):
     }
 
 
-@app.get("/districts")
+@router.get("/districts")
 def get_districts():
-    locations = pd.read_csv("data/locations.csv")
+    locations = pd.read_csv(BASE_DIR / "data/locations.csv")
     districts = sorted(locations["district"].dropna().unique().tolist())
     return {"districts": districts}
 
 
-@app.get("/cities/{district}")
+@router.get("/cities/{district}")
 def get_cities(district: str):
-    locations = pd.read_csv("data/locations.csv")
+    locations = pd.read_csv(BASE_DIR / "data/locations.csv")
 
     subset = locations[
         locations["district"].str.lower() == district.lower()
@@ -75,7 +78,7 @@ def get_cities(district: str):
 
 
 def get_soil(district):
-    soil = pd.read_csv("data/soil_clean.csv")
+    soil = pd.read_csv(BASE_DIR / "data/soil_clean.csv")
 
     soil["District"] = soil["District"].astype(str).str.strip().str.lower()
 
@@ -95,7 +98,7 @@ def get_soil(district):
 
 
 def get_cultivation(district, season):
-    df = pd.read_csv("data/final_dataset.csv")
+    df = pd.read_csv(BASE_DIR / "data/final_dataset.csv")
 
     df["District"] = df["District"].astype(str).str.strip().str.title()
     df["Season"] = df["Season"].astype(str).str.strip().str.title()
@@ -127,7 +130,7 @@ def get_cultivation(district, season):
 
 
 def get_yield_history_features(district, season):
-    history = pd.read_csv("data/final_dataset.csv")
+    history = pd.read_csv(BASE_DIR / "data/final_dataset.csv")
 
     history["District"] = history["District"].astype(str).str.strip().str.title()
     history["Season"] = history["Season"].astype(str).str.strip().str.title()
@@ -173,7 +176,7 @@ def detect_water_condition(total_rainfall, zone):
 
 def recommend_fertilizer(zone, water_condition, crop_duration, crop_week):
 
-    rules = pd.read_csv("data/fertilizer/fertilizer_rules.csv")
+    rules = pd.read_csv(BASE_DIR / "data/fertilizer/fertilizer_rules.csv")
 
     rules["Zone"] = rules["Zone"].astype(str).str.strip().str.title()
 
@@ -252,7 +255,7 @@ def recommend_fertilizer(zone, water_condition, crop_duration, crop_week):
     }
 
 
-@app.post("/predict")
+@router.post("/predict")
 def predict(data: FarmerInput):
 
     season = data.season.strip().title()
