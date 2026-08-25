@@ -47,6 +47,9 @@ def dengue_chat(payload: ChatRequest) -> ChatResponse:
         f"- How to reduce community spread: {', '.join(prevention['reduce'])}\n"
     )
 
+    from dotenv import load_dotenv
+    load_dotenv(Path(__file__).resolve().parent.parent.parent / ".env", override=True)
+
     api_key = os.getenv("GEMINI_API_KEY", "").strip()
     model = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
 
@@ -61,23 +64,43 @@ def dengue_chat(payload: ChatRequest) -> ChatResponse:
         
         contents.append({
             "role": "user",
-            "parts": [{"text": (
-                "You are the Geonix Dengue AI Safety Assistant. "
-                "You provide helpful, friendly, and practical medical/prevention advice to users in Sri Lanka. "
-                "Answers should be short, concise, and easy to read (max 3 sentences).\n\n"
-                f"Context info:\n{guide_context}\n\n"
-                f"User Question: {payload.message}"
-            )}]
+            "parts": [{"text": payload.message}]
         })
+
+        system_instruction = {
+            "parts": [{
+                "text": (
+                    "You are the Geonix Dengue AI Safety Assistant. "
+                    "You provide helpful, friendly, and practical medical/prevention advice to Sri Lankan users regarding Dengue fever.\n\n"
+                    "CRITICAL RULES:\n"
+                    "1. You MUST ONLY answer queries related to Dengue fever, breeding prevention, symptoms, treatment guidelines, or risk control. "
+                    "If the user asks about ANY other topic (e.g. general knowledge, programming, non-dengue medicine, translation of other things, jokes, general talk, etc.), you must politely decline to answer, explaining that your sole purpose is assisting with Dengue safety.\n"
+                    "2. Detect the language of the user's question (Sinhala, Tamil, or English) and reply in that same language. "
+                    "If they write in Sinhala (or Singlish), reply in Sinhala. If in Tamil, reply in Tamil. If in English, reply in English.\n"
+                    "3. Keep answers concise, helpful, and under 3 sentences (or use short bullet points).\n"
+                    "4. Do not provide direct medical prescriptions. Advise seeing a healthcare professional for severe symptoms.\n"
+                    "5. Use the following context guidelines to assist when relevant:\n"
+                    f"{guide_context}"
+                )
+            }]
+        }
 
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
         try:
-            r = requests.post(url, json={"contents": contents}, timeout=12)
+            req_payload = {
+                "contents": contents,
+                "systemInstruction": system_instruction,
+                "generationConfig": {
+                    "temperature": 0.2
+                }
+            }
+            r = requests.post(url, json=req_payload, timeout=25)
             r.raise_for_status()
             res_data = r.json()
             reply = res_data["candidates"][0]["content"]["parts"][0]["text"]
             return ChatResponse(response=reply.strip())
-        except Exception:
+        except Exception as err:
+            print("Gemini Chat Error:", err)
             pass
 
     # Rule-based fallback if Gemini is offline or API key is not set
