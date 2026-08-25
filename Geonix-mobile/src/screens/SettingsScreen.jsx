@@ -15,13 +15,13 @@ import {
 import { useState, useEffect, useRef } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
+import { API_BASE_URL } from "../config/api";
 
 // ── Storage key ───────────────────────────────────────────────────────────────
 const STORAGE_KEY = "@flood_app_settings";
 
 // ── Defaults ──────────────────────────────────────────────────────────────────
 const DEFAULT_SETTINGS = {
-  apiUrl: "http://192.168.8.100:8000",
   dangerThreshold: "10.0",
   alertThreshold: "8.0",
   watchThreshold: "6.5",
@@ -260,14 +260,21 @@ export default function SettingsScreen() {
     setPingStatus("checking");
     setPingMs(null);
     const start = Date.now();
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    
     try {
-      const res = await fetch(`${settings.apiUrl}/riverLevel`, {
-        signal: AbortSignal.timeout(5000),
+      const res = await fetch(`${API_BASE_URL}/health`, {
+        signal: controller.signal,
       });
+      clearTimeout(timeoutId);
       if (!res.ok) throw new Error("non-2xx");
       setPingMs(Date.now() - start);
       setPingStatus("ok");
-    } catch {
+    } catch (err) {
+      clearTimeout(timeoutId);
+      console.log("Ping failed:", err);
       setPingStatus("fail");
     }
   };
@@ -313,17 +320,14 @@ export default function SettingsScreen() {
         {/* ════════ SERVER ════════ */}
         <SectionHeader icon="server-network" label="SERVER" />
 
-        <View style={styles.card}>
+         <View style={styles.card}>
           <SettingRow
             label="API Base URL"
-            sub="Backend prediction server address"
+            sub="Configured in .env file"
           >
-            <StyledInput
-              value={settings.apiUrl}
-              onChangeText={(v) => patch("apiUrl", v)}
-              placeholder="http://192.168.x.x:8000"
-              monospace
-            />
+            <Text style={{ color: C.text, fontFamily: Platform.OS === "ios" ? "Courier New" : "monospace", fontSize: 13 }}>
+              {API_BASE_URL}
+            </Text>
           </SettingRow>
 
           {/* Ping row */}

@@ -4,6 +4,10 @@ import HomeScreen from "../screens/home/HomeScreen";
 import FloodMapScreen from "../screens/FloodMapScreen";
 import PaddyAdvisoryScreen from "../screens/PaddyAdvisoryScreen";
 import FloodMapScreenDivision from "../screens/FloodMapScreenDivision";
+import DengueRiskScreen from "../screens/DengueRiskScreen";
+import DengueChatbotScreen from "../screens/DengueChatbotScreen";
+import SafeNavigationScreen from "../screens/SafeNavigationScreen";
+import SafeNavigationDemoScreen from "../screens/SafeNavigationDemoScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -20,20 +24,18 @@ const baseHeader = {
   headerStyle: {
     backgroundColor: HEADER.bg,
   },
-  headerTintColor: HEADER.amber, // back-arrow colour
+  headerTintColor: HEADER.amber,
   headerTitleStyle: {
     color: HEADER.text,
     fontSize: 15,
     fontWeight: "700",
     letterSpacing: 0.3,
   },
-  headerShadowVisible: false, // removes iOS drop-shadow
-  headerBackTitleVisible: false, // iOS: hide "Back" text
-  // Hairline border under the header
+  headerShadowVisible: false,
+  headerBackTitleVisible: false,
   headerBottomBorderVisible: true,
   contentStyle: { backgroundColor: "#0D1117" },
 
-  // Android ripple on back button
   ...(Platform.OS === "android" && {
     headerBackButtonMenuEnabled: false,
   }),
@@ -42,14 +44,12 @@ const baseHeader = {
 export default function HomeStack() {
   return (
     <Stack.Navigator screenOptions={baseHeader}>
-      {/* ── Home — no header ───────────────────────────────────────────── */}
       <Stack.Screen
         name="Home"
         component={HomeScreen}
         options={{ headerShown: false }}
       />
 
-      {/* ── Full district flood map ────────────────────────────────────── */}
       <Stack.Screen
         name="FloodMap"
         component={FloodMapScreen}
@@ -58,20 +58,15 @@ export default function HomeStack() {
           headerTitleStyle: {
             ...baseHeader.headerTitleStyle,
           },
-          // Amber left-border accent via a custom hairline
           headerStyle: {
             ...baseHeader.headerStyle,
-            // RN stack doesn't support borderLeft natively, so we rely on
-            // the consistent bg + bottom border for the branded look
           },
-          // Subtle subtitle via headerRight badge
           headerRight: () => (
             <DistrictBadge label="ALL DIVISIONS" color={HEADER.amber} />
           ),
         }}
       />
 
-      {/* ── Single-division / tap-to-predict map ──────────────────────── */}
       <Stack.Screen
         name="FloodMapDivision"
         component={FloodMapScreenDivision}
@@ -86,6 +81,7 @@ export default function HomeStack() {
         }}
       />
 
+      {/* ── Paddy Advisory ──────────────────────── */}
       {/* ── Single-division / tap-to-predict map ──────────────────────── */}
       <Stack.Screen
         name="PaddyAdvisory"
@@ -100,11 +96,66 @@ export default function HomeStack() {
           ),
         }}
       />
+
+      <Stack.Screen
+        name="DengueWarning"
+        component={DengueRiskScreen}
+        options={{
+          title: "Dengue Warning",
+          headerTitleStyle: {
+            ...baseHeader.headerTitleStyle,
+          },
+          headerRight: () => (
+            <DistrictBadge label="RISK ALERTS" color={HEADER.teal} />
+          ),
+        }}
+      />
+
+      <Stack.Screen
+        name="DengueChatbot"
+        component={DengueChatbotScreen}
+        options={{
+          title: "Dengue AI Assistant",
+          headerTitleStyle: {
+            ...baseHeader.headerTitleStyle,
+          },
+          headerRight: () => (
+            <DistrictBadge label="CHAT PREVIEW" color={HEADER.amber} />
+          ),
+        }}
+      />
+
+      <Stack.Screen
+        name="SafeNavigation"
+        component={SafeNavigationScreen}
+        options={{
+          title: "Safe Navigation",
+          headerTitleStyle: {
+            ...baseHeader.headerTitleStyle,
+          },
+          headerRight: () => (
+            <DistrictBadge label="SAFE ROUTES" color={HEADER.teal} />
+          ),
+        }}
+      />
+
+      <Stack.Screen
+        name="SafeNavigationDemo"
+        component={SafeNavigationDemoScreen}
+        options={{
+          title: "Safe Navigation Demo",
+          headerTitleStyle: {
+            ...baseHeader.headerTitleStyle,
+          },
+          headerRight: () => (
+            <DistrictBadge label="DEMO MODE" color={HEADER.amber} />
+          ),
+        }}
+      />
     </Stack.Navigator>
   );
 }
 
-// ── Small pill badge shown in header right ────────────────────────────────────
 import { View, Text, StyleSheet } from "react-native";
 
 function DistrictBadge({ label, color }) {

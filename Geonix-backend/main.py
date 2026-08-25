@@ -8,6 +8,7 @@ from typing import Any
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+<<<<<<< HEAD
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -15,6 +16,23 @@ FLOOD_MAIN_PATH = BASE_DIR / "flood-map" / "main.py"
 SAFE_ROUTE_MAIN_PATH = BASE_DIR / "safe_route" / "main.py"
 DENGUE_ROOT = BASE_DIR / "dengue-warning"
 
+=======
+from dotenv import load_dotenv
+
+BASE_DIR = Path(__file__).resolve().parent
+
+# Load environment variables from all service directories
+load_dotenv(BASE_DIR / ".env")
+load_dotenv(BASE_DIR / "dengue-warning" / ".env")
+load_dotenv(BASE_DIR / "safe_route" / ".env")
+load_dotenv(BASE_DIR / "paddy-advisory" / ".env")
+
+FLOOD_MAIN_PATH = BASE_DIR / "flood-map" / "main.py"
+SAFE_ROUTE_MAIN_PATH = BASE_DIR / "safe_route" / "main.py"
+DENGUE_ROOT = BASE_DIR / "dengue-warning"
+PADDY_MAIN_PATH = BASE_DIR / "paddy-advisory" / "api.py"
+PADDY_ROOT = BASE_DIR / "paddy-advisory"
+>>>>>>> a8329ea3f6a74eaef064cdda742d0c47506ca361
 
 def _load_module_from_file(module_name: str, file_path: Path, working_dir: Path | None = None) -> Any:
     spec = importlib.util.spec_from_file_location(module_name, file_path)
@@ -42,7 +60,11 @@ except ModuleNotFoundError as exc:
         "Flood backend dependencies are missing. Install flood requirements in the same Python environment "
         "(for example: geopandas, shapely, fiona, pyproj, httpx, scikit-learn, pandas, numpy, fastapi, uvicorn)."
     ) from exc
+<<<<<<< HEAD
 flood_app: FastAPI = flood_module.app
+=======
+flood_router = flood_module.router
+>>>>>>> a8329ea3f6a74eaef064cdda742d0c47506ca361
 
 try:
     safe_route_module = _load_module_from_file(
@@ -60,6 +82,7 @@ safe_route_router = safe_route_module.router
 if str(DENGUE_ROOT) not in sys.path:
     sys.path.insert(0, str(DENGUE_ROOT))
 
+<<<<<<< HEAD
 from api.dengue_router import router as dengue_router  # noqa: E402
 from api.main import health as dengue_health  # noqa: E402
 from api.main import score as dengue_score  # noqa: E402
@@ -89,3 +112,65 @@ app.post("/score", response_model=RiskScoreResponse)(dengue_score)
 @app.get("/dengue/health")
 def dengue_health_check() -> dict[str, Any]:
     return dengue_health()
+=======
+
+import importlib
+dengue_router_module = importlib.import_module("api.dengue_router")
+dengue_main_module = importlib.import_module("api.main")
+dengue_schemas_module = importlib.import_module("api.schemas")
+
+dengue_router = dengue_router_module.router
+dengue_health = dengue_main_module.health
+dengue_score = dengue_main_module.score
+RiskScoreResponse = dengue_schemas_module.RiskScoreResponse
+
+if str(PADDY_ROOT) not in sys.path:
+    sys.path.insert(0, str(PADDY_ROOT))
+
+try:
+    paddy_module = _load_module_from_file(
+        module_name="geonix_paddy_main",
+        file_path=PADDY_MAIN_PATH,
+        working_dir=PADDY_MAIN_PATH.parent,
+    )
+except ModuleNotFoundError as exc:
+    raise RuntimeError(
+        "Paddy advisory backend dependencies are missing. Install paddy requirements in the same Python environment "
+        "(for example: fastapi, pydantic, joblib, pandas, requests, python-dotenv)."
+    ) from exc
+paddy_router = paddy_module.app
+
+
+app = FastAPI(title="Geonix Unified Backend", version="1.0.0")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Keep flood map endpoints exactly as they are (/predict/full, /predict/subdist, etc.).
+app.include_router(flood_router)
+
+# Add safe route endpoints under /safe-route.
+app.include_router(safe_route_router)
+
+# Add dengue warning endpoints on the same backend process.
+app.include_router(dengue_router)
+app.post("/score", response_model=RiskScoreResponse)(dengue_score)
+
+# Add paddy advisory endpoints.
+app.mount("/paddy", paddy_module.app)
+
+
+@app.get("/dengue/health")
+def dengue_health_check() -> dict[str, Any]:
+    return dengue_health()
+
+
+@app.get("/health")
+def health_check() -> dict[str, str]:
+    return {"status": "ok", "message": "Geonix Unified Backend Gateway is running"}
+
+>>>>>>> a8329ea3f6a74eaef064cdda742d0c47506ca361

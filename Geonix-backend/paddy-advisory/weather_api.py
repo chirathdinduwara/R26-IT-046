@@ -1,7 +1,10 @@
 import requests
 import pandas as pd
+from datetime import date, timedelta
+
 
 def get_forecast_weather(lat: float, lon: float):
+
     url = "https://api.open-meteo.com/v1/forecast"
 
     params = {
@@ -46,4 +49,75 @@ def get_forecast_weather(lat: float, lon: float):
         "wind_speed": round(df["wind_speed_10m_max"].mean(), 2),
         "evapotranspiration": round(df["et0_fao_evapotranspiration"].sum(), 2),
         "daily_forecast": daily_forecast
+    }
+
+
+def get_recent_actual_weather(lat: float, lon: float, days: int = 30) -> dict:
+    """
+    Gets recent observed weather for the exact farmer location.
+
+    This is NOT tied to Maha/Yala calendar dates.
+    It is used to make the ML climate input responsive to
+    the farmer's current local weather.
+    """
+
+    today = date.today()
+    start_date = today - timedelta(days=days)
+
+    url = "https://archive-api.open-meteo.com/v1/archive"
+
+    params = {
+        "latitude": lat,
+        "longitude": lon,
+        "start_date": start_date.isoformat(),
+        "end_date": today.isoformat(),
+        "daily": ",".join([
+            "temperature_2m_mean",
+            "precipitation_sum",
+        ]),
+        "timezone": "Asia/Colombo",
+    }
+
+    response = requests.get(
+        url,
+        params=params,
+        timeout=30
+    )
+
+    response.raise_for_status()
+
+    data = response.json()["daily"]
+
+    df = pd.DataFrame(data)
+
+    if df.empty:
+        return {
+            "days_observed": 0,
+            "rainfall_mm": 0.0,
+            "rainy_days": 0,
+            "avg_temp": None
+        }
+
+    df = df.dropna(subset=["precipitation_sum"])
+
+    return {
+        "days_observed": len(df),
+
+        "rainfall_mm": round(
+            float(df["precipitation_sum"].sum()),
+            2
+        ),
+
+        "rainy_days": int(
+            (df["precipitation_sum"] > 0).sum()
+        ),
+
+        "avg_temp": (
+            round(
+                float(df["temperature_2m_mean"].mean()),
+                2
+            )
+            if not df["temperature_2m_mean"].isna().all()
+            else None
+        )
     }
