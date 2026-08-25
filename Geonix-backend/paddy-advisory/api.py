@@ -7,11 +7,16 @@ from datetime import datetime
 from weather_api import get_forecast_weather
 from crop_calendar import get_crop_calendar_rules
 from ai_advisor import generate_ai_advice
+from climate_lookup import get_seasonal_climate_estimate, get_rainfall_deviation
+from weather_api import (
+    get_forecast_weather,
+    get_recent_actual_weather
+)
 
 app = FastAPI()
 
 
-model = joblib.load("model/paddy_model_improved_1.pkl")
+model = joblib.load("model/paddy_model_improved_6.pkl")
 
 
 
@@ -274,15 +279,31 @@ def predict(data: FarmerInput):
     district = loc_info["district"]
     city = loc_info["city"]
 
-    weather = get_forecast_weather(loc_info["lat"], loc_info["lon"])
-    daily_forecast = weather.pop("daily_forecast")
+    
+    weather_forecast = get_forecast_weather(loc_info["lat"], loc_info["lon"])
+    daily_forecast = weather_forecast.pop("daily_forecast")
+
+    current_year = datetime.now().year
+    recent_weather = get_recent_actual_weather(
+    loc_info["lat"],
+    loc_info["lon"],
+    days=30
+)
+
+    seasonal_climate = get_seasonal_climate_estimate(
+    district=district,
+    season=season,
+    recent_weather=recent_weather,
+    forecast_weather=weather_forecast
+)
+
 
     soil = get_soil(district)
 
     water_condition = detect_water_condition(
-    total_rainfall=weather["total_rainfall"],
-    zone=soil["zone"]
-    )   
+        total_rainfall=weather_forecast["total_rainfall"],
+        zone=soil["zone"]
+    ) 
 
     crop_duration = "3 Month"
 
@@ -301,7 +322,7 @@ def predict(data: FarmerInput):
         "Year": datetime.now().year,
         "Season": season,
 
-        **weather,
+        **seasonal_climate,   
         **soil,
         **cultivation,
 
@@ -333,7 +354,9 @@ def predict(data: FarmerInput):
 
     df["humidity_effect"] = df["rainy_days"] * df["avg_temp"]
 
-    df["rainfall_deviation"] = 0
+    df["rainfall_deviation"] = get_rainfall_deviation(
+        district, season, seasonal_climate["total_rainfall"]
+    )
 
    
 
@@ -345,15 +368,15 @@ def predict(data: FarmerInput):
     
 
     risk = calculate_risk(
-        weather["total_rainfall"],
-        weather["avg_temp"]
+        weather_forecast["total_rainfall"],
+        weather_forecast["avg_temp"]
     )
 
     crop_stage, rules = get_crop_calendar_rules(
         crop_week=data.crop_week,
         season=season,
         pH=soil["pH"],
-        total_rainfall=weather["total_rainfall"]
+        total_rainfall=weather_forecast["total_rainfall"]
     )
 
     ai_context = {
@@ -367,8 +390,8 @@ def predict(data: FarmerInput):
         "risk_level": risk,
         "soil_pH": soil["pH"],
         "soil_type": soil["soil_type"],
-        "total_rainfall": weather["total_rainfall"],
-        "avg_temp": weather["avg_temp"],
+        "total_rainfall": weather_forecast["total_rainfall"],
+        "avg_temp": weather_forecast["avg_temp"],
         "rules": rules,
         "fertilizer_week": fertilizer["Week"],
         "urea_kg_ha": fertilizer["Urea_kg_ha"],
@@ -380,16 +403,16 @@ def predict(data: FarmerInput):
     advice = generate_ai_advice(ai_context)
 
     return {
-    "District": district,
-    "City": city,
-    "Predicted_Yield": round(predicted, 2),
-    "Expected_Production_tons": round(production, 2),
-    "Risk_Level": risk,
-    "Crop_Stage": crop_stage,
-    "Recommended_Fertilizer": fertilizer,
-    "Water_Condition": water_condition,
-    "Advisory_English": advice["english"],
-    "Advisory_Sinhala": advice["sinhala"],
-    "Seven_Day_Rain_Forecast": daily_forecast
-    
+        "District": district,
+        "City": city,
+        "Predicted_Yield": round(predicted, 2),
+        "Expected_Production_tons": round(production, 2),
+        "Risk_Level": risk,
+        "Crop_Stage": crop_stage,
+        "Recommended_Fertilizer": fertilizer,
+        "Water_Condition": water_condition,
+        "Advisory_English": advice["english"],
+        "Advisory_Sinhala": advice["sinhala"],
+        "Seven_Day_Rain_Forecast": daily_forecast,
+        "Model_Input_Seasonal_Rainfall_mm": round(seasonal_climate["total_rainfall"], 1),
     }
