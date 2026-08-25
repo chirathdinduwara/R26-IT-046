@@ -9,13 +9,6 @@ import {
   View,
 } from "react-native";
 import { useEffect, useMemo, useState } from "react";
-<<<<<<< HEAD
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import * as Location from "expo-location";
-import MapView, { Circle, Marker, Polyline } from "react-native-maps";
-
-const STORAGE_KEY = "@flood_app_settings";
-=======
 import * as Location from "expo-location";
 import MapView, { Circle, Marker, Polyline } from "react-native-maps";
 import { SAFE_ROUTE_API_URL } from "../config/api";
@@ -32,7 +25,6 @@ function normalizeSafeRouteApiUrl(rawUrl) {
     return value.replace(/\/$/, "");
   }
 }
->>>>>>> a8329ea3f6a74eaef064cdda742d0c47506ca361
 
 const C = {
   bg: "#0D1117",
@@ -40,18 +32,12 @@ const C = {
   border: "#30363D",
   text: "#E6EDF3",
   sub: "#8B949E",
-<<<<<<< HEAD
-  amber: "#F0A500",
-  green: "#3FB950",
-  red: "#F85149",
-=======
   blue: "#58A6FF",
   blueDim: "#1f385c",
   red: "#F85149",
   redDim: "#5c1d1a",
   green: "#56ef5c",
   greenDim: "#1a5c1f",
->>>>>>> a8329ea3f6a74eaef064cdda742d0c47506ca361
 };
 
 async function parseJsonResponse(res) {
@@ -59,22 +45,14 @@ async function parseJsonResponse(res) {
   try {
     return raw ? JSON.parse(raw) : {};
   } catch {
-<<<<<<< HEAD
-    throw new Error(raw?.slice(0, 160) || "Server returned a non-JSON response.");
-=======
     throw new Error(
       raw?.slice(0, 160) || "Server returned a non-JSON response.",
     );
->>>>>>> a8329ea3f6a74eaef064cdda742d0c47506ca361
   }
 }
 
 export default function SafeNavigationScreen() {
-<<<<<<< HEAD
-  const [apiUrl, setApiUrl] = useState("http://192.168.199.22:8000");
-=======
   const [apiUrl, setApiUrl] = useState(DEFAULT_SAFE_ROUTE_API_URL);
->>>>>>> a8329ea3f6a74eaef064cdda742d0c47506ca361
   const [currentLocation, setCurrentLocation] = useState(null);
   const [locationLoading, setLocationLoading] = useState(false);
 
@@ -89,16 +67,6 @@ export default function SafeNavigationScreen() {
 
   useEffect(() => {
     (async () => {
-<<<<<<< HEAD
-      try {
-        const raw = await AsyncStorage.getItem(STORAGE_KEY);
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (parsed?.apiUrl) setApiUrl(parsed.apiUrl);
-        }
-      } catch {}
-=======
->>>>>>> a8329ea3f6a74eaef064cdda742d0c47506ca361
       await detectCurrentLocation(false);
     })();
   }, []);
@@ -187,14 +155,10 @@ export default function SafeNavigationScreen() {
       if (!ok) return;
     }
     if (!destination) {
-<<<<<<< HEAD
-      Alert.alert("Destination Required", "Type destination and select one suggestion.");
-=======
       Alert.alert(
         "Destination Required",
         "Type destination and select one suggestion.",
       );
->>>>>>> a8329ea3f6a74eaef064cdda742d0c47506ca361
       return;
     }
 
@@ -251,10 +215,6 @@ export default function SafeNavigationScreen() {
       return {
         latitude: centerLat,
         longitude: centerLon,
-<<<<<<< HEAD
-        latitudeDelta: Math.max(0.1, Math.abs(currentLocation.lat - destination.lat) * 2),
-        longitudeDelta: Math.max(0.1, Math.abs(currentLocation.lon - destination.lon) * 2),
-=======
         latitudeDelta: Math.max(
           0.1,
           Math.abs(currentLocation.lat - destination.lat) * 2,
@@ -263,7 +223,6 @@ export default function SafeNavigationScreen() {
           0.1,
           Math.abs(currentLocation.lon - destination.lon) * 2,
         ),
->>>>>>> a8329ea3f6a74eaef064cdda742d0c47506ca361
       };
     }
 
@@ -289,24 +248,16 @@ export default function SafeNavigationScreen() {
       <ScrollView contentContainerStyle={styles.scroll}>
         <Text style={styles.title}>Safe Navigation</Text>
         <Text style={styles.subtitle}>
-<<<<<<< HEAD
-          Current location is automatic. Start typing destination to get suggestions.
-=======
           Current location is automatic. Start typing destination to get
           suggestions.
->>>>>>> a8329ea3f6a74eaef064cdda742d0c47506ca361
         </Text>
 
         <View style={styles.card}>
           <Text style={styles.section}>Current Location</Text>
           <Text style={styles.meta}>
-<<<<<<< HEAD
-            {currentLocation ? `${currentLocation.lat}, ${currentLocation.lon}` : "Detecting location..."}
-=======
             {currentLocation
               ? `${currentLocation.lat}, ${currentLocation.lon}`
               : "Detecting location..."}
->>>>>>> a8329ea3f6a74eaef064cdda742d0c47506ca361
           </Text>
           <TouchableOpacity
             style={styles.secondaryBtn}
@@ -316,13 +267,9 @@ export default function SafeNavigationScreen() {
             {locationLoading ? (
               <ActivityIndicator color={C.sub} />
             ) : (
-<<<<<<< HEAD
-              <Text style={styles.secondaryBtnText}>Refresh Current Location</Text>
-=======
               <Text style={styles.secondaryBtnText}>
                 Refresh Current Location
               </Text>
->>>>>>> a8329ea3f6a74eaef064cdda742d0c47506ca361
             )}
           </TouchableOpacity>
 
@@ -339,12 +286,6 @@ export default function SafeNavigationScreen() {
             autoCapitalize="words"
           />
           {destinationLoading && <Text style={styles.meta}>Searching...</Text>}
-<<<<<<< HEAD
-          {!!destination && <Text style={styles.meta}>Selected: {destination.label}</Text>}
-
-          {destinationResults.map((item) => (
-            <TouchableOpacity key={item.id} style={styles.resultItem} onPress={() => selectDestination(item)}>
-=======
           {!!destination && (
             <Text style={styles.meta}>Selected: {destination.label}</Text>
           )}
@@ -355,20 +296,12 @@ export default function SafeNavigationScreen() {
               style={styles.resultItem}
               onPress={() => selectDestination(item)}
             >
->>>>>>> a8329ea3f6a74eaef064cdda742d0c47506ca361
               <Text numberOfLines={2} style={styles.resultText}>
                 {item.label}
               </Text>
             </TouchableOpacity>
           ))}
 
-<<<<<<< HEAD
-          <TouchableOpacity style={styles.primaryBtn} onPress={fetchRoutes} disabled={loading}>
-            {loading ? (
-              <ActivityIndicator color={C.bg} />
-            ) : (
-              <Text style={styles.primaryBtnText}>Find Dangerous + Safe Routes</Text>
-=======
           <TouchableOpacity
             style={styles.primaryBtn}
             onPress={fetchRoutes}
@@ -380,34 +313,25 @@ export default function SafeNavigationScreen() {
               <Text style={styles.primaryBtnText}>
                 Find Dangerous + Safe Routes
               </Text>
->>>>>>> a8329ea3f6a74eaef064cdda742d0c47506ca361
             )}
           </TouchableOpacity>
         </View>
 
         <View style={styles.mapWrap}>
-<<<<<<< HEAD
-          <MapView style={styles.map} initialRegion={mapRegion} region={mapRegion}>
-=======
           <MapView
             style={styles.map}
             initialRegion={mapRegion}
             region={mapRegion}
           >
->>>>>>> a8329ea3f6a74eaef064cdda742d0c47506ca361
             {safeRoute?.coordinates?.length > 1 && (
               <Polyline
                 coordinates={safeRoute.coordinates.map((p) => ({
                   latitude: p.lat,
                   longitude: p.lon,
                 }))}
-<<<<<<< HEAD
-                strokeColor={selectedRoute?.id === safeRoute.id ? C.green : "#2B7A3F"}
-=======
                 strokeColor={
                   selectedRoute?.id === safeRoute.id ? C.green : "#2B7A3F"
                 }
->>>>>>> a8329ea3f6a74eaef064cdda742d0c47506ca361
                 strokeWidth={selectedRoute?.id === safeRoute.id ? 6 : 4}
               />
             )}
@@ -418,13 +342,9 @@ export default function SafeNavigationScreen() {
                   latitude: p.lat,
                   longitude: p.lon,
                 }))}
-<<<<<<< HEAD
-                strokeColor={selectedRoute?.id === dangerousRoute.id ? C.red : "#A33733"}
-=======
                 strokeColor={
                   selectedRoute?.id === dangerousRoute.id ? C.red : "#A33733"
                 }
->>>>>>> a8329ea3f6a74eaef064cdda742d0c47506ca361
                 strokeWidth={selectedRoute?.id === dangerousRoute.id ? 6 : 4}
               />
             )}
@@ -475,13 +395,9 @@ export default function SafeNavigationScreen() {
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.dangerBtn}
-<<<<<<< HEAD
-              onPress={() => dangerousRoute && setSelectedRouteId(dangerousRoute.id)}
-=======
               onPress={() =>
                 dangerousRoute && setSelectedRouteId(dangerousRoute.id)
               }
->>>>>>> a8329ea3f6a74eaef064cdda742d0c47506ca361
             >
               <Text style={styles.dangerBtnText}>Show Dangerous Route</Text>
             </TouchableOpacity>
@@ -503,19 +419,12 @@ export default function SafeNavigationScreen() {
                       : "ALTERNATIVE"}
                 </Text>
                 <Text style={styles.routeMeta}>
-<<<<<<< HEAD
-                  {route.distance_km} km | {route.duration_in_traffic_min} min (traffic)
-                </Text>
-                <Text style={styles.routeMeta}>
-                  risk {route.risk_score} | traffic roads {route.traffic_road_count} | flooded roads{" "}
-=======
                   {route.distance_km} km | {route.duration_in_traffic_min} min
                   (traffic)
                 </Text>
                 <Text style={styles.routeMeta}>
                   risk {route.risk_score} | traffic roads{" "}
                   {route.traffic_road_count} | flooded roads{" "}
->>>>>>> a8329ea3f6a74eaef064cdda742d0c47506ca361
                   {route.flooded_road_count}
                 </Text>
               </TouchableOpacity>

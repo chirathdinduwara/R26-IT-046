@@ -9,13 +9,6 @@ import {
   View,
 } from "react-native";
 import { useEffect, useMemo, useState } from "react";
-<<<<<<< HEAD
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import * as Location from "expo-location";
-import MapView, { Circle, Marker, Polyline } from "react-native-maps";
-
-const STORAGE_KEY = "@flood_app_settings";
-=======
 import * as Location from "expo-location";
 import MapView, { Circle, Marker, Polyline } from "react-native-maps";
 import { SAFE_ROUTE_API_URL } from "../config/api";
@@ -32,7 +25,6 @@ function normalizeSafeRouteApiUrl(rawUrl) {
     return value.replace(/\/$/, "");
   }
 }
->>>>>>> a8329ea3f6a74eaef064cdda742d0c47506ca361
 
 const C = {
   bg: "#0D1117",
@@ -40,18 +32,12 @@ const C = {
   border: "#30363D",
   text: "#E6EDF3",
   sub: "#8B949E",
-<<<<<<< HEAD
-  amber: "#F0A500",
-  green: "#3FB950",
-  red: "#F85149",
-=======
   blue: "#58A6FF",
   blueDim: "#1f385c",
   red: "#F85149",
   redDim: "#5c1d1a",
   green: "#56ef5c",
   greenDim: "#1a5c1f",
->>>>>>> a8329ea3f6a74eaef064cdda742d0c47506ca361
 };
 
 async function parseJsonResponse(res) {
@@ -64,15 +50,9 @@ async function parseJsonResponse(res) {
 }
 
 export default function SafeNavigationDemoScreen() {
-<<<<<<< HEAD
-  const [apiUrl, setApiUrl] = useState("http://192.168.199.22:8000");
-  const [originLat, setOriginLat] = useState("");
-  const [originLon, setOriginLon] = useState("");
-=======
   const [apiUrl, setApiUrl] = useState(DEFAULT_SAFE_ROUTE_API_URL);
   const [originLat, setOriginLat] = useState("6.9038");
   const [originLon, setOriginLon] = useState("79.8550");
->>>>>>> a8329ea3f6a74eaef064cdda742d0c47506ca361
   const [destLat, setDestLat] = useState("6.9271");
   const [destLon, setDestLon] = useState("79.8612");
   const [temp, setTemp] = useState("28");
@@ -87,19 +67,7 @@ export default function SafeNavigationDemoScreen() {
   const [selectedRouteId, setSelectedRouteId] = useState(null);
 
   useEffect(() => {
-<<<<<<< HEAD
-    (async () => {
-      try {
-        const raw = await AsyncStorage.getItem(STORAGE_KEY);
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (parsed?.apiUrl) setApiUrl(parsed.apiUrl);
-        }
-      } catch {}
-    })();
-=======
     // No async storage load needed
->>>>>>> a8329ea3f6a74eaef064cdda742d0c47506ca361
   }, []);
 
   const setCurrentAsOrigin = async () => {
