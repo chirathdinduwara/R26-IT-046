@@ -93,7 +93,7 @@ except ModuleNotFoundError as exc:
         "Paddy advisory backend dependencies are missing. Install paddy requirements in the same Python environment "
         "(for example: fastapi, pydantic, joblib, pandas, requests, python-dotenv)."
     ) from exc
-paddy_router = paddy_module.router
+paddy_router = paddy_module.app
 
 
 app = FastAPI(title="Geonix Unified Backend", version="1.0.0")
@@ -116,7 +116,7 @@ app.include_router(dengue_router)
 app.post("/score", response_model=RiskScoreResponse)(dengue_score)
 
 # Add paddy advisory endpoints.
-app.include_router(paddy_router)
+app.mount("/paddy", paddy_module.app)
 
 
 @app.get("/dengue/health")
