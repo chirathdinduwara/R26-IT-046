@@ -13,48 +13,27 @@ FEATS  = config["feature_cols"]
 THRESH = config["threshold"]
 DIVS   = config["divisions"]
 
-# ─────────────────────────────────────────────────────────────────────────────
-# PHYSICS GATE
-# ─────────────────────────────────────────────────────────────────────────────
-# Three-signal gate based on Colombo / Kelani basin flood behaviour:
-#
-#   HARD MIN  → below this the signal physically cannot cause flooding.
-#               Return empty GeoJSON immediately, skip the model entirely.
-#
-#   SOFT MIN  → between hard and soft the signal is weak.
-#               Run the model but multiply probabilities by a 0→1 ramp factor
-#               so low-but-not-impossible conditions produce proportionally
-#               smaller flood extents instead of full-strength predictions.
-#
-#   Above SOFT → model runs at full strength (dampen factor = 1.0).
-#
-#  metric               hard_min  soft_min   unit
+
 GATE = {
     "rainfall_7day":    ( 40.0,    80.0 ),  # mm   — 7-day local rainfall
     "upstream_rain_7d": ( 30.0,    60.0 ),  # mm   — Kelani catchment (Kitulgala/Avissawella)
     "river_water_level":( 6.5,      8.0 ),  # m    — Hanwella gauge (alert ~8m, danger ~10m)
 }
 
-# Weights match the training feature importance split
+
 WEIGHTS = {"rainfall_7day": 0.45, "upstream_rain_7d": 0.25, "river_water_level": 0.30}
 
 
 def physics_score(r7: float, up7: float, river: float) -> tuple[bool, float]:
-    """
-    Returns (hard_blocked, dampen_factor).
 
-    hard_blocked = True   → caller must return empty response immediately.
-    dampen_factor 0.0-1.0 → multiply model probabilities before threshold comparison.
-                            1.0 = full strength.  0.0 = nothing passes threshold.
-    """
     vals = {"rainfall_7day": r7, "upstream_rain_7d": up7, "river_water_level": river}
 
-    # Hard gate: any single signal below its absolute minimum → no flood
+
     for key, (hard_min, _) in GATE.items():
         if vals[key] < hard_min:
             return True, 0.0
 
-    # Soft dampening: linear ramp per signal between hard_min and soft_min
+
     factors = {}
     for key, (hard_min, soft_min) in GATE.items():
         v = vals[key]
@@ -82,7 +61,7 @@ def empty_response(reason: str, r7: float, up7: float, river: float, division: s
     return resp
 
 
-# ── Polygon builder ───────────────────────────────────────────────────────────
+
 def cells_to_polygons(flood_cells, min_area_m2=40_000):
     if flood_cells.empty:
         return {"type": "FeatureCollection", "features": []}

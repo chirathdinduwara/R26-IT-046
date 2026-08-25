@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+
 import {
   View,
   Text,
@@ -9,6 +10,7 @@ import {
   ActivityIndicator,
   Alert,
 } from "react-native";
+
 import {
   Leaf,
   CloudRain,
@@ -34,10 +36,8 @@ const TEXT = {
     farmSize: "Farm Size (Hectare)",
     cropWeek: "Crop Week",
     getPrediction: "Get Prediction",
-
     heroTitle: "Healthy Paddy,\nBetter Tomorrow",
     heroSub: "Smart insights for higher yield",
-
     predictedYield: "Predicted Yield",
     expectedProduction: "Expected Production",
     riskLevel: "Risk Level",
@@ -62,10 +62,8 @@ const TEXT = {
     farmSize: "ගොවිබිම් ප්‍රමාණය (හෙක්ටයාර්)",
     cropWeek: "වගා සතිය",
     getPrediction: "අනාවැකිය ලබාගන්න",
-
     heroTitle: "සාර්ථක වී වගාවක්,\nහොඳ හෙටක්",
     heroSub: "ඉහළ අස්වැන්නකට බුද්ධිමත් උපදෙස්",
-
     predictedYield: "අනුමාන අස්වැන්න",
     expectedProduction: "අපේක්ෂිත නිෂ්පාදනය",
     riskLevel: "අවදානම් මට්ටම",
@@ -83,20 +81,40 @@ const TEXT = {
 export default function PaddyAdvisoryScreen() {
   const [districts, setDistricts] = useState([]);
   const [cities, setCities] = useState([]);
+
   const [district, setDistrict] = useState("");
   const [city, setCity] = useState("");
+
   const [season, setSeason] = useState("Yala");
   const [farmSize, setFarmSize] = useState("2");
   const [cropWeek, setCropWeek] = useState("3");
 
   const [result, setResult] = useState(null);
   const [showResult, setShowResult] = useState(false);
+
   const [loading, setLoading] = useState(false);
   const [language, setLanguage] = useState("en");
+
+  // --------------------------------------------------
+  // GET PREDICTION
+  // --------------------------------------------------
 
   const handlePredict = async () => {
     if (!district || !city || !season || !farmSize || !cropWeek) {
       Alert.alert("Missing Data", "Please fill all fields.");
+      return;
+    }
+
+    const farmSizeNumber = Number(farmSize);
+    const cropWeekNumber = Number(cropWeek);
+
+    if (Number.isNaN(farmSizeNumber) || farmSizeNumber <= 0) {
+      Alert.alert("Invalid Farm Size", "Please enter a valid farm size.");
+      return;
+    }
+
+    if (Number.isNaN(cropWeekNumber) || cropWeekNumber <= 0) {
+      Alert.alert("Invalid Crop Week", "Please enter a valid crop week.");
       return;
     }
 
@@ -107,9 +125,12 @@ export default function PaddyAdvisoryScreen() {
         district: district.trim(),
         city: city.trim(),
         season: season.trim(),
-        farm_size_hectare: Number(farmSize),
-        crop_week: Number(cropWeek),
+        farm_size_hectare: farmSizeNumber,
+        crop_week: cropWeekNumber,
       };
+
+      console.log("Prediction payload:", payload);
+      console.log("Prediction URL:", `${PADDY_API_URL}/predict`);
 
       const res = await fetch(`${PADDY_API_URL}/predict`, {
         method: "POST",
@@ -122,8 +143,26 @@ export default function PaddyAdvisoryScreen() {
 
       const data = await res.json();
 
-      if (data.status === "failed") {
-        Alert.alert("Prediction Failed", data.message);
+      console.log("Prediction API response:", data);
+
+      if (!res.ok) {
+        Alert.alert(
+          "Prediction Failed",
+          data?.message || `Server returned HTTP ${res.status}`,
+        );
+        return;
+      }
+
+      if (data?.status === "failed") {
+        Alert.alert("Prediction Failed", data?.message || "Prediction failed.");
+        return;
+      }
+
+      if (!data || typeof data !== "object") {
+        Alert.alert(
+          "Prediction Failed",
+          "Invalid response received from backend.",
+        );
         return;
       }
 
@@ -131,49 +170,198 @@ export default function PaddyAdvisoryScreen() {
       setShowResult(true);
     } catch (err) {
       console.log("Predict error:", err);
+
       Alert.alert("Network Error", "Cannot connect to backend server.");
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    async function loadDistricts() {
-      try {
-        const res = await fetch(`${PADDY_API_URL}/districts`);
-        const data = await res.json();
-        setDistricts(data.districts);
-        setDistrict(data.districts[0]);
-      } catch (err) {
-        console.log("Load districts error:", err);
-      }
-    }
-    loadDistricts();
-  }, []);
+  // --------------------------------------------------
+  // LOAD DISTRICTS
+  // --------------------------------------------------
 
   useEffect(() => {
-    if (!district) return;
+    let mounted = true;
+
+    async function loadDistricts() {
+      try {
+        console.log("Loading districts:", `${PADDY_API_URL}/districts`);
+
+        const res = await fetch(`${PADDY_API_URL}/districts`);
+
+        const data = await res.json();
+
+        console.log("District API response:", data);
+
+        if (!res.ok) {
+          throw new Error(`District API returned HTTP ${res.status}`);
+        }
+
+        /*
+         * Expected backend:
+         *
+         * {
+         *   "districts": ["Ampara", "Badulla", ...]
+         * }
+         *
+         * Also supports:
+         *
+         * ["Ampara", "Badulla", ...]
+         */
+
+        let districtList = [];
+
+        if (Array.isArray(data)) {
+          districtList = data;
+        } else if (Array.isArray(data?.districts)) {
+          districtList = data.districts;
+        }
+
+        // Make sure only usable values are kept
+        districtList = districtList.filter(
+          (item) => typeof item === "string" && item.trim().length > 0,
+        );
+
+        if (!mounted) return;
+
+        setDistricts(districtList);
+
+        if (districtList.length > 0) {
+          setDistrict(districtList[0]);
+        } else {
+          setDistrict("");
+          setCities([]);
+          setCity("");
+        }
+      } catch (err) {
+        console.log("Load districts error:", err);
+
+        if (!mounted) return;
+
+        setDistricts([]);
+        setDistrict("");
+        setCities([]);
+        setCity("");
+
+        Alert.alert(
+          "District Error",
+          "Could not load districts from the backend.",
+        );
+      }
+    }
+
+    loadDistricts();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  // --------------------------------------------------
+  // LOAD CITIES WHEN DISTRICT CHANGES
+  // --------------------------------------------------
+
+  useEffect(() => {
+    if (!district) {
+      setCities([]);
+      setCity("");
+      return;
+    }
+
+    let mounted = true;
 
     async function loadCities() {
       try {
-        const res = await fetch(`${PADDY_API_URL}/cities/${district}`);
+        const encodedDistrict = encodeURIComponent(district);
+
+        const url = `${PADDY_API_URL}/cities/${encodedDistrict}`;
+
+        console.log("Loading cities:", url);
+
+        const res = await fetch(url);
+
         const data = await res.json();
-        setCities(data.cities);
-        setCity(data.cities[0]);
+
+        console.log("City API response:", data);
+
+        if (!res.ok) {
+          throw new Error(`City API returned HTTP ${res.status}`);
+        }
+
+        /*
+         * Expected backend:
+         *
+         * {
+         *   "cities": ["Ampara", "Kalmunai", ...]
+         * }
+         *
+         * Also supports:
+         *
+         * ["Ampara", "Kalmunai", ...]
+         */
+
+        let cityList = [];
+
+        if (Array.isArray(data)) {
+          cityList = data;
+        } else if (Array.isArray(data?.cities)) {
+          cityList = data.cities;
+        }
+
+        cityList = cityList.filter(
+          (item) => typeof item === "string" && item.trim().length > 0,
+        );
+
+        if (!mounted) return;
+
+        setCities(cityList);
+
+        if (cityList.length > 0) {
+          setCity(cityList[0]);
+        } else {
+          setCity("");
+        }
       } catch (err) {
         console.log("Load cities error:", err);
+
+        if (!mounted) return;
+
+        setCities([]);
+        setCity("");
+
+        Alert.alert("City Error", `Could not load cities for ${district}.`);
       }
     }
+
     loadCities();
+
+    return () => {
+      mounted = false;
+    };
   }, [district]);
+
+  // --------------------------------------------------
+  // INPUT SCREEN
+  // --------------------------------------------------
 
   const renderInputScreen = () => (
     <>
       <View style={styles.topbar}>
-        <ArrowLeft size={26} color="#111" />
-        <Text style={styles.pageTitle}>New Prediction</Text>
+        <TouchableOpacity
+          onPress={() => {
+            console.log("Back pressed");
+          }}
+        >
+          <ArrowLeft size={26} color="#111" />
+        </TouchableOpacity>
+
+        <Text style={styles.pageTitle}>{TEXT[language].newPrediction}</Text>
+
         <View style={{ width: 26 }} />
       </View>
+
+      {/* LANGUAGE TABS */}
 
       <View style={styles.langTabs}>
         <TouchableOpacity
@@ -207,51 +395,87 @@ export default function PaddyAdvisoryScreen() {
         </TouchableOpacity>
       </View>
 
+      {/* FORM */}
+
       <View style={styles.formCard}>
+        {/* DISTRICT */}
+
         <Text style={styles.label}>{TEXT[language].district}</Text>
+
         <View style={styles.pickerBox}>
-          <Picker selectedValue={district} onValueChange={setDistrict}>
-            {districts.map((d) => (
-              <Picker.Item key={d} label={d} value={d} />
-            ))}
+          <Picker
+            selectedValue={district}
+            onValueChange={(value) => {
+              setDistrict(value);
+            }}
+          >
+            {Array.isArray(districts) &&
+              districts.map((d) => (
+                <Picker.Item key={String(d)} label={String(d)} value={d} />
+              ))}
           </Picker>
         </View>
+
+        {/* CITY */}
 
         <Text style={styles.label}>{TEXT[language].city}</Text>
+
         <View style={styles.pickerBox}>
-          <Picker selectedValue={city} onValueChange={setCity}>
-            {cities.map((c) => (
-              <Picker.Item key={c} label={c} value={c} />
-            ))}
+          <Picker
+            selectedValue={city}
+            onValueChange={(value) => {
+              setCity(value);
+            }}
+          >
+            {Array.isArray(cities) &&
+              cities.map((c) => (
+                <Picker.Item key={String(c)} label={String(c)} value={c} />
+              ))}
           </Picker>
         </View>
 
+        {/* SEASON */}
+
         <Text style={styles.label}>{TEXT[language].season}</Text>
+
         <View style={styles.pickerBox}>
           <Picker selectedValue={season} onValueChange={setSeason}>
             <Picker.Item label={TEXT[language].yala} value="Yala" />
+
             <Picker.Item label={TEXT[language].maha} value="Maha" />
           </Picker>
         </View>
 
+        {/* FARM SIZE */}
+
         <Text style={styles.label}>{TEXT[language].farmSize}</Text>
+
         <TextInput
           style={styles.input}
           value={farmSize}
           onChangeText={setFarmSize}
           keyboardType="numeric"
+          placeholder="2"
+          placeholderTextColor="#888"
         />
 
+        {/* CROP WEEK */}
+
         <Text style={styles.label}>{TEXT[language].cropWeek}</Text>
+
         <TextInput
           style={styles.input}
           value={cropWeek}
           onChangeText={setCropWeek}
           keyboardType="numeric"
+          placeholder="3"
+          placeholderTextColor="#888"
         />
 
+        {/* BUTTON */}
+
         <TouchableOpacity
-          style={styles.button}
+          style={[styles.button, loading && styles.buttonDisabled]}
           onPress={handlePredict}
           disabled={loading}
         >
@@ -267,139 +491,225 @@ export default function PaddyAdvisoryScreen() {
     </>
   );
 
-  const renderResultScreen = () => (
-    <>
-      <View style={styles.topbar}>
-        <TouchableOpacity onPress={() => setShowResult(false)}>
-          <ArrowLeft size={26} color="#111" />
-        </TouchableOpacity>
-        <Text style={styles.pageTitle}>{TEXT[language].paddyAdvisory}</Text>
+  // --------------------------------------------------
+  // RESULT SCREEN
+  // --------------------------------------------------
 
-        <Text style={{ fontSize: 22 }}>🔔</Text>
-      </View>
+  const renderResultScreen = () => {
+    const forecast = Array.isArray(result?.Seven_Day_Rain_Forecast)
+      ? result.Seven_Day_Rain_Forecast
+      : [];
 
-      <View style={styles.hero}>
-        <Text style={styles.heroTitle}>{TEXT[language].heroTitle}</Text>
-        <Text style={styles.heroSub}>{TEXT[language].heroSub}</Text>
-        <Text style={styles.heroIcon}>🌾</Text>
-      </View>
+    const advisory = getDisplayAdvisory(result, language);
 
-      <View style={styles.contextChip}>
-        <Text style={styles.contextText}>
-          📍 {result?.City}, {result?.District} • {season} •{" "}
-          {TEXT[language].week} {cropWeek}
-        </Text>
-      </View>
+    const advisorySections = splitAdvisory(advisory);
 
-      <View style={styles.grid}>
-        <View style={styles.resultBox}>
-          <Leaf size={28} color="#36a852" />
-          <Text style={styles.cardLabel}>{TEXT[language].predictedYield}</Text>
-          <Text style={styles.cardValue}>{result?.Predicted_Yield}</Text>
-          <Text style={styles.cardUnit}>{TEXT[language].kgHa}</Text>
+    return (
+      <>
+        {/* TOP BAR */}
+
+        <View style={styles.topbar}>
+          <TouchableOpacity onPress={() => setShowResult(false)}>
+            <ArrowLeft size={26} color="#111" />
+          </TouchableOpacity>
+
+          <Text style={styles.pageTitle}>{TEXT[language].paddyAdvisory}</Text>
+
+          <Text style={{ fontSize: 22 }}>🔔</Text>
         </View>
 
-        <View style={styles.resultBox}>
-          <Package size={28} color="#f28c28" />
-          <Text style={styles.cardLabel}>
-            {TEXT[language].expectedProduction}
-          </Text>
-          <Text style={styles.cardValue}>
-            {result?.Expected_Production_tons}
-          </Text>
-          <Text style={styles.cardUnit}>{TEXT[language].tons}</Text>
+        {/* HERO */}
+
+        <View style={styles.hero}>
+          <Text style={styles.heroTitle}>{TEXT[language].heroTitle}</Text>
+
+          <Text style={styles.heroSub}>{TEXT[language].heroSub}</Text>
+
+          <Text style={styles.heroIcon}>🌾</Text>
         </View>
 
-        <View style={styles.resultBox}>
-          <ShieldCheck size={28} color="#3ca34b" />
-          <Text style={styles.cardLabel}>{TEXT[language].riskLevel}</Text>
-          <View
-            style={[
-              styles.riskBadge,
-              result?.Risk_Level?.includes("Low")
-                ? styles.lowRisk
-                : result?.Risk_Level?.includes("Medium")
-                  ? styles.mediumRisk
-                  : styles.highRisk,
-            ]}
-          >
-            <Text style={styles.riskBadgeText}>{result?.Risk_Level}</Text>
+        {/* CONTEXT */}
+
+        <View style={styles.contextChip}>
+          <Text style={styles.contextText}>
+            📍 {result?.City || city || "—"},{" "}
+            {result?.District || district || "—"} • {season} •{" "}
+            {TEXT[language].week} {cropWeek}
+          </Text>
+        </View>
+
+        {/* RESULT GRID */}
+
+        <View style={styles.grid}>
+          {/* YIELD */}
+
+          <View style={styles.resultBox}>
+            <Leaf size={28} color="#36a852" />
+
+            <Text style={styles.cardLabel}>
+              {TEXT[language].predictedYield}
+            </Text>
+
+            <Text style={styles.cardValue}>
+              {result?.Predicted_Yield ?? "—"}
+            </Text>
+
+            <Text style={styles.cardUnit}>{TEXT[language].kgHa}</Text>
+          </View>
+
+          {/* PRODUCTION */}
+
+          <View style={styles.resultBox}>
+            <Package size={28} color="#f28c28" />
+
+            <Text style={styles.cardLabel}>
+              {TEXT[language].expectedProduction}
+            </Text>
+
+            <Text style={styles.cardValue}>
+              {result?.Expected_Production_tons ?? "—"}
+            </Text>
+
+            <Text style={styles.cardUnit}>{TEXT[language].tons}</Text>
+          </View>
+
+          {/* RISK */}
+
+          <View style={styles.resultBox}>
+            <ShieldCheck size={28} color="#3ca34b" />
+
+            <Text style={styles.cardLabel}>{TEXT[language].riskLevel}</Text>
+
+            <View style={[styles.riskBadge, getRiskStyle(result?.Risk_Level)]}>
+              <Text style={styles.riskBadgeText}>
+                {result?.Risk_Level || "—"}
+              </Text>
+            </View>
+          </View>
+
+          {/* CROP STAGE */}
+
+          <View style={styles.resultBox}>
+            <Sprout size={28} color="#5fbf3f" />
+
+            <Text style={styles.cardLabel}>{TEXT[language].cropStage}</Text>
+
+            <Text style={styles.cardValueSmall}>
+              {result?.Crop_Stage || "—"}
+            </Text>
           </View>
         </View>
 
-        <View style={styles.resultBox}>
-          <Sprout size={28} color="#5fbf3f" />
-          <Text style={styles.cardLabel}>{TEXT[language].cropStage}</Text>
+        {/* RAIN FORECAST */}
 
-          <Text style={styles.cardValueSmall}>{result?.Crop_Stage}</Text>
+        <View style={styles.sectionCard}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>
+              {TEXT[language].rainForecast}
+            </Text>
+
+            <Text style={styles.viewAll}>{TEXT[language].viewAll}</Text>
+          </View>
+
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            {forecast.length > 0 ? (
+              forecast.map((day, index) => (
+                <View
+                  key={`${day?.date || "day"}-${index}`}
+                  style={styles.forecastCard}
+                >
+                  <Text style={styles.forecastDay}>
+                    {formatForecastDay(day?.date)}
+                  </Text>
+
+                  <Text style={styles.forecastDate}>
+                    {day?.date ? String(day.date).slice(5) : "—"}
+                  </Text>
+
+                  <CloudRain size={26} color="#4aa3df" />
+
+                  <Text style={styles.forecastRain}>
+                    {day?.rain_mm ?? "—"} mm
+                  </Text>
+
+                  <Text style={styles.forecastTemp}>
+                    {day?.temp_max ?? "—"}° / {day?.temp_min ?? "—"}°
+                  </Text>
+                </View>
+              ))
+            ) : (
+              <Text style={styles.emptyText}>No rain forecast available.</Text>
+            )}
+          </ScrollView>
         </View>
-      </View>
 
-      <View style={styles.sectionCard}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>{TEXT[language].rainForecast}</Text>
-          <Text style={styles.viewAll}>{TEXT[language].viewAll}</Text>
+        {/* ADVISORY */}
+
+        <View style={styles.sectionCard}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>
+              {TEXT[language].advisorySummary}
+            </Text>
+
+            <BarChart3 size={22} color="#2e7d32" />
+          </View>
+
+          {advisorySections.length > 0 ? (
+            advisorySections.map((item, index) => (
+              <View key={index} style={styles.adviceMiniCard}>
+                <Text style={styles.adviceMiniTitle}>{item.title}</Text>
+
+                <Text style={styles.adviceMiniText}>{item.text}</Text>
+              </View>
+            ))
+          ) : (
+            <Text style={styles.emptyText}>
+              No advisory information available.
+            </Text>
+          )}
         </View>
 
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          {result?.Seven_Day_Rain_Forecast?.map((day, index) => (
-            <View key={index} style={styles.forecastCard}>
-              <Text style={styles.forecastDay}>
-                {new Date(day.date).toLocaleDateString("en-US", {
-                  weekday: "short",
-                })}
-              </Text>
+        {/* NEW PREDICTION */}
 
-              <Text style={styles.forecastDate}>{day.date?.slice(5)}</Text>
-
-              <CloudRain size={26} color="#4aa3df" />
-
-              <Text style={styles.forecastRain}>{day.rain_mm} mm</Text>
-
-              <Text style={styles.forecastTemp}>
-                {day.temp_max}° / {day.temp_min}°
-              </Text>
-            </View>
-          ))}
-        </ScrollView>
-      </View>
-
-      <View style={styles.sectionCard}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>
-            {TEXT[language].advisorySummary}
+        <TouchableOpacity
+          style={styles.secondaryButton}
+          onPress={() => {
+            setShowResult(false);
+            setResult(null);
+          }}
+        >
+          <Text style={styles.secondaryButtonText}>
+            {TEXT[language].makeNew}
           </Text>
-          <BarChart3 size={22} color="#2e7d32" />
-        </View>
+        </TouchableOpacity>
+      </>
+    );
+  };
 
-        {splitAdvisory(getDisplayAdvisory(result, language)).map(
-          (item, index) => (
-            <View key={index} style={styles.adviceMiniCard}>
-              <Text style={styles.adviceMiniTitle}>{item.title}</Text>
-              <Text style={styles.adviceMiniText}>{item.text}</Text>
-            </View>
-          ),
-        )}
-      </View>
-
-      <TouchableOpacity
-        style={styles.secondaryButton}
-        onPress={() => setShowResult(false)}
-      >
-        <Text style={styles.secondaryButtonText}>{TEXT[language].makeNew}</Text>
-      </TouchableOpacity>
-    </>
-  );
+  // --------------------------------------------------
+  // MAIN RETURN
+  // --------------------------------------------------
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.contentContainer}
+      showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+    >
       {!showResult ? renderInputScreen() : renderResultScreen()}
     </ScrollView>
   );
 }
 
+// ======================================================
+// HELPER FUNCTIONS
+// ======================================================
+
 function getDisplayAdvisory(result, language) {
-  if (!result) return "";
+  if (!result) {
+    return "";
+  }
 
   if (language === "si") {
     return result.Advisory_Sinhala || result.Advisory || "";
@@ -409,15 +719,23 @@ function getDisplayAdvisory(result, language) {
 }
 
 function cleanMarkdown(text) {
+  if (!text || typeof text !== "string") {
+    return "";
+  }
+
   return text.replace(/\*\*/g, "").replace(/###/g, "").trim();
 }
 
 function splitAdvisory(text) {
   const clean = cleanMarkdown(text);
 
+  if (!clean) {
+    return [];
+  }
+
   const sections = clean
     .split(/\n\s*\n/)
-    .map((s) => s.trim())
+    .map((section) => section.trim())
     .filter(Boolean);
 
   if (sections.length <= 1) {
@@ -430,8 +748,13 @@ function splitAdvisory(text) {
   }
 
   return sections.map((section) => {
-    const lines = section.split("\n").filter(Boolean);
+    const lines = section
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean);
+
     const title = lines[0] || "Advice";
+
     const body = lines.slice(1).join(" ");
 
     return {
@@ -441,11 +764,62 @@ function splitAdvisory(text) {
   });
 }
 
+function getRiskStyle(riskLevel) {
+  if (!riskLevel) {
+    return styles.mediumRisk;
+  }
+
+  const risk = String(riskLevel).toLowerCase();
+
+  if (risk.includes("low")) {
+    return styles.lowRisk;
+  }
+
+  if (risk.includes("medium")) {
+    return styles.mediumRisk;
+  }
+
+  if (risk.includes("high")) {
+    return styles.highRisk;
+  }
+
+  return styles.mediumRisk;
+}
+
+function formatForecastDay(date) {
+  if (!date) {
+    return "—";
+  }
+
+  try {
+    const parsed = new Date(date);
+
+    if (Number.isNaN(parsed.getTime())) {
+      return "—";
+    }
+
+    return parsed.toLocaleDateString("en-US", {
+      weekday: "short",
+    });
+  } catch (error) {
+    return "—";
+  }
+}
+
+// ======================================================
+// STYLES
+// ======================================================
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#f4f7f5",
-    padding: 18,
+    paddingHorizontal: 18,
+  },
+
+  contentContainer: {
+    paddingTop: 6,
+    paddingBottom: 30,
   },
 
   topbar: {
@@ -511,6 +885,14 @@ const styles = StyleSheet.create({
     color: "#111",
   },
 
+  pickerBox: {
+    backgroundColor: "#eeeeee",
+    borderRadius: 11,
+    overflow: "hidden",
+    minHeight: 50,
+    justifyContent: "center",
+  },
+
   input: {
     backgroundColor: "#eeeeee",
     height: 50,
@@ -527,6 +909,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginTop: 22,
+  },
+
+  buttonDisabled: {
+    opacity: 0.7,
   },
 
   buttonText: {
@@ -563,6 +949,21 @@ const styles = StyleSheet.create({
     bottom: 10,
     fontSize: 64,
     opacity: 0.8,
+  },
+
+  contextChip: {
+    backgroundColor: "#e8f5e9",
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+    marginBottom: 16,
+    alignSelf: "flex-start",
+  },
+
+  contextText: {
+    color: "#1b5e20",
+    fontWeight: "800",
+    fontSize: 13,
   },
 
   grid: {
@@ -644,10 +1045,17 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
 
+  forecastDay: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: "#222",
+  },
+
   forecastDate: {
     fontSize: 12,
     color: "#555",
     marginTop: 5,
+    marginBottom: 5,
   },
 
   forecastRain: {
@@ -660,21 +1068,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: "#666",
     marginTop: 4,
-  },
-
-  advisoryText: {
-    fontSize: 14,
-    lineHeight: 21,
-    color: "#222",
-  },
-
-  contextChip: {
-    backgroundColor: "#e8f5e9",
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 20,
-    marginBottom: 16,
-    alignSelf: "flex-start",
   },
 
   contextText: {
@@ -744,5 +1137,11 @@ const styles = StyleSheet.create({
 
   highRisk: {
     backgroundColor: "#d63031",
+  },
+
+  emptyText: {
+    color: "#777",
+    fontSize: 14,
+    paddingVertical: 10,
   },
 });
