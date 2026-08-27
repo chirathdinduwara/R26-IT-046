@@ -1,7 +1,10 @@
-geonix-backend/dengue-warning/api/.env.example
-geonix-backend/.venv/
-geonix-backend/__pycache__/
-geonix-backend/dengue-warning/api/__pycache__/
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+.env
 
 # Dependencies
 */node_modules/
