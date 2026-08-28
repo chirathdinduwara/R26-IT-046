@@ -1,4 +1,5 @@
 import asyncio
+from datetime import datetime
 import os
 from pathlib import Path
 from typing import Any
@@ -6,13 +7,14 @@ from typing import Any
 import httpx
 import joblib
 import numpy as np
-from fastapi import APIRouter, FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
+import pandas as pd
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 
 BASE_DIR = Path(__file__).resolve().parent
-MODEL_PATH = BASE_DIR / "model" / "road_risk_model.pkl"
+MODEL_PATH = BASE_DIR / "model" / "road_risk_model_01.pkl"
+META_PATH = BASE_DIR / "model" / "model_meta.pkl"
 ENV_PATH = BASE_DIR / ".env"
 
 
@@ -36,6 +38,8 @@ if not MODEL_PATH.exists():
     raise RuntimeError(f"Safe route model not found: {MODEL_PATH}")
 
 model = joblib.load(MODEL_PATH)
+meta = joblib.load(META_PATH) if META_PATH.exists() else {}
+
 
 DEFAULT_FLOOD_API_URL = os.getenv("FLOOD_MAP_API_URL", "http://127.0.0.1:8000")
 
@@ -65,6 +69,7 @@ class DemoWeatherOverride(BaseModel):
     temperature: float | None = None
     humidity: float | None = None
     rainfall: float | None = None
+    wind_speed: float | None = None
 
 
 class DemoConfig(BaseModel):
@@ -128,7 +133,55 @@ def _resolve_api_key(value: str | None, env_names: tuple[str, ...], label: str) 
     )
 
 
-def _predict_risk_probability(features: list[list[float]]) -> float:
+def _resolve_optional_api_key(value: str | None, env_names: tuple[str, ...]) -> str | None:
+    if value:
+        return value
+    for name in env_names:
+        env_val = os.getenv(name)
+        if env_val:
+            return env_val
+    return None
+
+
+MODEL_DIVISION_COORDS = {
+    "Colombo": {"lat": 6.94169485325631, "lon": 79.86354435321829},
+    "Dehiwala": {"lat": 6.839426506659912, "lon": 79.87706815381708},
+    "Homagama": {"lat": 6.833018497035361, "lon": 80.016997543414},
+    "Kaduwela": {"lat": 6.901772113273897, "lon": 79.97633445459037},
+    "Kolonnawa": {"lat": 6.934393852174595, "lon": 79.91508983073803},
+    "Maharagama": {"lat": 6.854709957476647, "lon": 79.94119345255017},
+    "Moratuwa": {"lat": 6.782074489227856, "lon": 79.89131721247591},
+    "Padukka": {"lat": 6.834026666748021, "lon": 80.12318555454948},
+    "Ratmalana": {"lat": 6.8188, "lon": 79.8887},
+    "Seethawaka": {"lat": 6.922381477478933, "lon": 80.14712517957918},
+    "Sri Jayawardenepura Kotte": {"lat": 6.890683873130256, "lon": 79.89718443962096},
+    "Thimbirigasyaya": {"lat": 6.897046230104874, "lon": 79.86935983688694},
+}
+
+
+def _find_nearest_division(lat: float, lon: float) -> str:
+    nearest = "Colombo"
+    min_dist = float("inf")
+    for div, coords in MODEL_DIVISION_COORDS.items():
+        dist = _haversine_m(lat, lon, coords["lat"], coords["lon"])
+        if dist < min_dist:
+            min_dist = dist
+            nearest = div
+    return nearest
+
+
+def _get_season(month: int) -> str:
+    if month in (3, 4):
+        return "First Inter-Monsoon"
+    elif month in (5, 6, 7, 8, 9):
+        return "SW Monsoon"
+    elif month in (10, 11):
+        return "Second Inter-Monsoon"
+    else:  # 12, 1, 2
+        return "Dry Season (NE Monsoon)"
+
+
+def _predict_risk_probability(features: Any) -> float:
     if hasattr(model, "predict_proba"):
         probs = model.predict_proba(features)
         if len(probs[0]) > 1:
@@ -185,6 +238,10 @@ def _weather_risk_index(rainfall_mm_h: float, humidity: float) -> float:
     rain_factor = min(1.0, max(0.0, rainfall_mm_h / 18.0))
     humidity_factor = min(1.0, max(0.0, (humidity - 60.0) / 40.0))
     return 0.75 * rain_factor + 0.25 * humidity_factor
+
+
+def _default_weather() -> dict[str, float]:
+    return {"temperature": 28.0, "humidity": 75.0, "rainfall": 0.0, "wind_speed": 10.0}
 
 
 def _extract_flood_shapes(geojson: dict[str, Any]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
@@ -304,6 +361,7 @@ async def _fetch_weather_current(client: httpx.AsyncClient, lat: float, lon: flo
     data = resp.json()
     main = data.get("main", {})
     rain = data.get("rain", {})
+    wind = data.get("wind", {})
     rainfall = float(rain.get("1h", 0.0))
     if rainfall == 0.0 and "3h" in rain:
         rainfall = float(rain.get("3h", 0.0)) / 3.0
@@ -311,6 +369,7 @@ async def _fetch_weather_current(client: httpx.AsyncClient, lat: float, lon: flo
         "temperature": float(main.get("temp", 28.0)),
         "humidity": float(main.get("humidity", 75.0)),
         "rainfall": rainfall,
+        "wind_speed": float(wind.get("speed", 10.0) if wind else 10.0) * 3.6,
     }
 
 
@@ -421,6 +480,44 @@ async def _search_destinations_google(
     google_api_key: str,
     limit: int,
 ) -> list[dict[str, Any]]:
+    # Try Google Places Text Search first (best for keyword/building suggestions)
+    try:
+        resp = await client.get(
+            "https://maps.googleapis.com/maps/api/place/textsearch/json",
+            params={
+                "query": query,
+                "region": "lk",
+                "location": "6.9271,79.8612",  # Colombo centroid
+                "radius": "50000",
+                "key": google_api_key,
+            },
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        status = data.get("status")
+        if status == "OK" and data.get("results"):
+            suggestions: list[dict[str, Any]] = []
+            for idx, item in enumerate(data.get("results", [])[:limit]):
+                loc = item.get("geometry", {}).get("location", {})
+                if "lat" not in loc or "lng" not in loc:
+                    continue
+                name = item.get("name", "")
+                addr = item.get("formatted_address", "")
+                label = f"{name}, {addr}" if name and addr and name not in addr else (addr or name or "Unknown destination")
+                suggestions.append(
+                    {
+                        "id": f"place_{idx}_{item.get('place_id', '')}",
+                        "label": label,
+                        "lat": float(loc["lat"]),
+                        "lon": float(loc["lng"]),
+                    }
+                )
+            return suggestions
+    except Exception:
+        # Fall back to Geocoding API if Places Text Search fails or is not enabled
+        pass
+
+    # Geocoding API fallback
     resp = await client.get(
         "https://maps.googleapis.com/maps/api/geocode/json",
         params={
@@ -455,6 +552,49 @@ async def _search_destinations_google(
     return suggestions
 
 
+async def _search_destinations_nominatim(
+    client: httpx.AsyncClient,
+    query: str,
+    limit: int,
+) -> list[dict[str, Any]]:
+    resp = await client.get(
+        "https://nominatim.openstreetmap.org/search",
+        params={
+            "q": query,
+            "format": "jsonv2",
+            "countrycodes": "lk",
+            "limit": limit,
+            "addressdetails": 0,
+        },
+        headers={"User-Agent": "GeonixSafeRoute/2.0 (destination-search)"},
+    )
+    resp.raise_for_status()
+    data = resp.json()
+    if not isinstance(data, list):
+        return []
+
+    suggestions: list[dict[str, Any]] = []
+    for idx, item in enumerate(data[:limit]):
+        lat_raw = item.get("lat")
+        lon_raw = item.get("lon")
+        if lat_raw is None or lon_raw is None:
+            continue
+        try:
+            lat = float(lat_raw)
+            lon = float(lon_raw)
+        except (TypeError, ValueError):
+            continue
+        suggestions.append(
+            {
+                "id": f"osm_{item.get('place_id', idx)}",
+                "label": item.get("display_name", "Unknown destination"),
+                "lat": lat,
+                "lon": lon,
+            }
+        )
+    return suggestions
+
+
 def _evaluate_route(
     route: dict[str, Any],
     weather: dict[str, float],
@@ -484,7 +624,9 @@ def _evaluate_route(
     flooded_roads: list[dict[str, Any]] = []
     dangerous_roads: list[dict[str, Any]] = []
 
-    weather_penalty = _weather_risk_index(weather["rainfall"], weather["humidity"])
+    now = datetime.now()
+    current_month = now.month
+    current_day = now.day
 
     for leg in legs:
         leg_duration = float(leg.get("duration", {}).get("value", 1.0))
@@ -507,18 +649,29 @@ def _evaluate_route(
 
             near_flood = _point_near_flood(m_lat, m_lon, flood_shapes)
             flood_risk = 1 if near_flood else 0
-            accident_risk = 1 if (leg_traffic_idx >= 60 or weather["rainfall"] >= 6) else 0
 
-            model_input = [[
-                weather["temperature"],
-                weather["humidity"],
-                weather["rainfall"],
-                leg_traffic_idx,
-                flood_risk,
-                accident_risk,
-            ]]
-            model_prob = _predict_risk_probability(model_input)
-            final_score = float(np.clip(0.7 * model_prob + 0.2 * weather_penalty + 0.1 * (leg_traffic_idx / 100.0), 0.0, 1.0))
+            # Predict road risk probability using the XGBoost pre-trained model pipeline
+            division = _find_nearest_division(m_lat, m_lon)
+            season = _get_season(current_month)
+
+            df_input = pd.DataFrame([{
+                "temperature_C": float(weather.get("temperature", 28.0)),
+                "rainfall_mm": float(weather.get("rainfall", 0.0)),
+                "humidity_%": float(weather.get("humidity", 75.0)),
+                "wind_speed_kmh": float(weather.get("wind_speed", 10.0)),
+                "month": int(current_month),
+                "day": int(current_day),
+                "division": str(division),
+                "season": str(season)
+            }])
+
+            model_prob = _predict_risk_probability(df_input)
+            
+            # Combine weather risk model probability (scaled), active flood zones, and traffic
+            model_risk = min(1.0, model_prob * 1000.0)
+            traffic_risk = leg_traffic_idx / 100.0
+            
+            final_score = float(np.clip(0.4 * model_risk + 0.5 * flood_risk + 0.1 * traffic_risk, 0.0, 1.0))
 
             step_duration = float(step.get("duration", {}).get("value", 30.0))
             step_scores.append(final_score)
@@ -537,7 +690,7 @@ def _evaluate_route(
                 traffic_roads.append(segment)
             if near_flood:
                 flooded_roads.append(segment)
-            if final_score >= 0.65 or (near_flood and leg_traffic_idx >= 55):
+            if final_score >= 0.5 or (near_flood and leg_traffic_idx >= 55):
                 dangerous_roads.append(segment)
 
     route_risk = float(np.average(step_scores, weights=step_weights)) if step_scores else 0.0
@@ -545,13 +698,79 @@ def _evaluate_route(
     overview_polyline = route.get("overview_polyline", {}).get("points", "")
     decoded_path = _decode_polyline(overview_polyline) if overview_polyline else []
 
+    # Generate visual route safety reasons
+    safe_reasons = []
+    danger_reasons = []
+
+    rain = weather.get("rainfall", 0.0)
+    wind = weather.get("wind_speed", 10.0)
+
+    if rain >= 8.0:
+        danger_reasons.append(f"Heavy rainfall warning ({round(rain, 1)} mm/h) - high risk of slippery roads & low visibility.")
+    elif rain > 2.0:
+        danger_reasons.append(f"Moderate rainfall ({round(rain, 1)} mm/h) detected along the route.")
+    else:
+        safe_reasons.append("Favorable clear weather conditions with little to no rain.")
+
+    if wind >= 30.0:
+        danger_reasons.append(f"High wind speeds ({round(wind, 1)} km/h) - watch out for falling tree branches or debris.")
+
+    if len(flooded_roads) > 0:
+        danger_reasons.append(f"Critical Warning: Route intersects {len(flooded_roads)} active flood zone(s).")
+    else:
+        safe_reasons.append("Route is completely clear of all active predicted flood zones.")
+
+    if traffic_index >= 60.0:
+        danger_reasons.append(f"Heavy traffic delays: travel time is increased by {round(traffic_index, 0)}% due to congestion.")
+    elif traffic_index >= 30.0:
+        danger_reasons.append(f"Moderate traffic delays: travel time is increased by {round(traffic_index, 0)}%.")
+    else:
+        safe_reasons.append("Optimal path with minimal traffic delays.")
+
+    rainfall_areas = []
+    if rain > 0.0:
+        dest_coord = decoded_path[-1] if len(decoded_path) > 0 else None
+        mid_coord = decoded_path[len(decoded_path) // 2] if len(decoded_path) > 1 else None
+        if dest_coord:
+            rainfall_areas.append({
+                "id": "rain_dest",
+                "center": {"lat": dest_coord["lat"], "lon": dest_coord["lon"]},
+                "radius": 1500,
+                "intensity": rain
+            })
+        if mid_coord:
+            rainfall_areas.append({
+                "id": "rain_mid",
+                "center": {"lat": mid_coord["lat"], "lon": mid_coord["lon"]},
+                "radius": 1200,
+                "intensity": rain
+            })
+
+    routemaster_recommendations = []
+    if rain >= 8.0:
+        routemaster_recommendations.append("Severe rain active. Reduce driving speed below 30 km/h to prevent hydroplaning.")
+        routemaster_recommendations.append("Double your safe following distance from vehicles ahead (at least 4 seconds).")
+        routemaster_recommendations.append("Turn on headlights and hazard lights to remain visible.")
+    elif rain > 0.0:
+        routemaster_recommendations.append("Wet asphalt. Stay under 50 km/h and avoid sudden steering adjustments.")
+        routemaster_recommendations.append("Turn on wipers and maintain a safe braking buffer.")
+
+    if wind >= 30.0:
+        routemaster_recommendations.append("High wind warnings. Watch out for fallen tree branches or flying debris.")
+
+    if len(flooded_roads) > 0:
+        routemaster_recommendations.append("Road segments are flooded. Never drive through water deeper than 10 cm.")
+        routemaster_recommendations.append("If water levels are rising, stop navigating and seek high ground immediately.")
+    else:
+        routemaster_recommendations.append("Path is clear of flood zones. Keep standard safe distance and drive safely.")
+
     return {
         "summary": route.get("summary") or "Alternative Route",
         "distance_km": round(distance_m / 1000.0, 2),
         "duration_min": round(duration_sec / 60.0, 1),
         "duration_in_traffic_min": round(duration_traffic_sec / 60.0, 1),
         "risk_score": round(route_risk, 3),
-        "weather_risk": round(weather_penalty, 3),
+        "weather_risk": round(route_risk * 0.4, 3),
         "traffic_index": round(traffic_index, 1),
         "flood_risk": round(float(len(flooded_roads) / max(1, len(step_scores))), 3),
         "dangerous_road_count": len(dangerous_roads),
@@ -562,14 +781,18 @@ def _evaluate_route(
         "dangerous_roads": dangerous_roads,
         "polyline": overview_polyline,
         "coordinates": decoded_path,
+        "safe_reasons": safe_reasons,
+        "danger_reasons": danger_reasons,
+        "rainfall_areas": rainfall_areas,
+        "routemaster_recommendations": routemaster_recommendations,
+        "has_flood": len(flooded_roads) > 0,
     }
 
 
 async def _build_route_response(req: SafeRouteRequest) -> dict[str, Any]:
-    openweather_key = _resolve_api_key(
+    openweather_key = _resolve_optional_api_key(
         req.openweather_api_key,
         ("OPENWEATHER_API_KEY", "OPENWEATHER_KEY"),
-        "OpenWeather API key",
     )
     google_key = _resolve_api_key(
         req.google_api_key,
@@ -581,12 +804,27 @@ async def _build_route_response(req: SafeRouteRequest) -> dict[str, Any]:
     midpoint_lat = (req.origin.lat + req.destination.lat) / 2.0
     midpoint_lon = (req.origin.lon + req.destination.lon) / 2.0
 
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        weather_task = _fetch_weather_current(client, midpoint_lat, midpoint_lon, openweather_key)
-        google_task = _fetch_google_routes(client, req.origin, req.destination, req, google_key)
-        flood_task = _fetch_flood_geojson(client, flood_api_url, openweather_key, req.threshold)
+    weather = _default_weather()
+    flood_geojson: dict[str, Any] = {"type": "FeatureCollection", "features": []}
 
-        weather, google_routes, flood_geojson = await asyncio.gather(weather_task, google_task, flood_task)
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        try:
+            google_routes = await _fetch_google_routes(client, req.origin, req.destination, req, google_key)
+        except HTTPException:
+            raise
+        except (httpx.HTTPError, ValueError) as exc:
+            raise HTTPException(status_code=502, detail=f"Google Directions request failed: {exc}") from exc
+
+        if openweather_key:
+            try:
+                weather = await _fetch_weather_current(client, midpoint_lat, midpoint_lon, openweather_key)
+            except (httpx.HTTPError, ValueError):
+                weather = _default_weather()
+
+            try:
+                flood_geojson = await _fetch_flood_geojson(client, flood_api_url, openweather_key, req.threshold)
+            except (httpx.HTTPError, ValueError):
+                flood_geojson = {"type": "FeatureCollection", "features": []}
 
     flooded_areas, flood_shapes = _extract_flood_shapes(flood_geojson)
     if req.demo_mode and req.demo_config and req.demo_config.flood_points:
@@ -604,6 +842,8 @@ async def _build_route_response(req: SafeRouteRequest) -> dict[str, Any]:
             weather["humidity"] = float(np.clip(weather_override.humidity, 0.0, 100.0))
         if weather_override.rainfall is not None:
             weather["rainfall"] = float(max(0.0, weather_override.rainfall))
+        if weather_override.wind_speed is not None:
+            weather["wind_speed"] = float(max(0.0, weather_override.wind_speed))
 
     traffic_multiplier = 1.0
     if req.demo_mode and req.demo_config:
@@ -619,7 +859,12 @@ async def _build_route_response(req: SafeRouteRequest) -> dict[str, Any]:
 
     for item in evaluated:
         normalized_time = (item["duration_in_traffic_min"] - min_time) / time_span
-        item["safety_score"] = round(0.75 * item["risk_score"] + 0.25 * normalized_time, 3)
+        if item.get("has_flood", False):
+            item["risk_score"] = max(0.95, item["risk_score"])
+            flood_penalty = 5.0
+        else:
+            flood_penalty = 0.0
+        item["safety_score"] = round(0.75 * item["risk_score"] + 0.25 * normalized_time + flood_penalty, 3)
 
     safe_route = min(evaluated, key=lambda x: (x["safety_score"], x["duration_in_traffic_min"]))
     dangerous_route = max(evaluated, key=lambda x: (x["risk_score"], x["duration_in_traffic_min"]))
@@ -690,14 +935,28 @@ async def search_destination(q: str, limit: int = 5) -> dict[str, Any]:
         return {"count": 0, "results": []}
 
     limited = max(1, min(limit, 10))
-    google_key = _resolve_api_key(
-        None,
-        ("GOOGLE_MAPS_API_KEY", "GOOGLE_API_KEY"),
-        "Google Maps API key",
-    )
+    google_key = os.getenv("GOOGLE_MAPS_API_KEY") or os.getenv("GOOGLE_API_KEY")
+    google_error_detail: str | None = None
 
     async with httpx.AsyncClient(timeout=20.0) as client:
-        results = await _search_destinations_google(client, query, google_key, limited)
+        if google_key:
+            try:
+                results = await _search_destinations_google(client, query, google_key, limited)
+                return {"count": len(results), "results": results}
+            except HTTPException as exc:
+                google_error_detail = str(exc.detail)
+            except (httpx.HTTPError, ValueError) as exc:
+                google_error_detail = str(exc)
+
+        try:
+            results = await _search_destinations_nominatim(client, query, limited)
+        except (httpx.HTTPError, ValueError) as exc:
+            if google_error_detail:
+                detail = f"Destination search failed. Google: {google_error_detail}. Fallback: {exc}"
+            else:
+                detail = f"Destination search failed: {exc}"
+            raise HTTPException(status_code=502, detail=detail) from exc
+
     return {"count": len(results), "results": results}
 
 
@@ -713,38 +972,4 @@ async def go_safe(req: SafeRouteRequest) -> dict[str, Any]:
     }
 
 
-app = FastAPI(title="Geonix Safe Route API", version="2.0.0")
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-app.include_router(router)
 
-
-# Compatibility aliases for standalone safe_route service usage.
-@app.post("/predict")
-def predict_alias(data: RoadRiskInput) -> dict[str, int]:
-    return predict(data)
-
-
-@app.post("/flooded-areas")
-async def flooded_areas_alias(req: FloodAreasRequest) -> dict[str, Any]:
-    return await flooded_areas(req)
-
-
-@app.post("/routes")
-async def routes_alias(req: SafeRouteRequest) -> dict[str, Any]:
-    return await routes(req)
-
-
-@app.get("/search-destination")
-async def search_destination_alias(q: str, limit: int = 5) -> dict[str, Any]:
-    return await search_destination(q, limit)
-
-
-@app.post("/go-safe")
-async def go_safe_alias(req: SafeRouteRequest) -> dict[str, Any]:
-    return await go_safe(req)
