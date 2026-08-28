@@ -1,0 +1,20 @@
+{
+    "current_week": {
+        "accuracy": 0.9149797570850202,
+        "balanced_accuracy": 0.9127325676976913,
+        "macro_f1": 0.9120909705944661,
+        "high_risk_recall": 0.9122807017543859
+    },
+    "week_1": {
+        "accuracy": 0.917004048582996,
+        "balanced_accuracy": 0.9167738446411012,
+        "macro_f1": 0.9157025743932449,
+        "high_risk_recall": 0.925
+    },
+    "week_2": {
+        "accuracy": 0.9143049932523617,
+        "balanced_accuracy": 0.9140945795469588,
+        "macro_f1": 0.912638550666161,
+        "high_risk_recall": 0.92
+    }
+}

@@ -1,16 +1,20 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 from typing import Dict
 
 import numpy as np
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from dotenv import load_dotenv
 
 from .dengue_router import router as dengue_router
 from .gemini_client import GeminiCalibrationError, GeminiConfig, GeminiRiskCalibrator
 from .model_manager import MODEL_PATH, model_manager
 from .schemas import RiskScoreRequest, RiskScoreResponse
+
+load_dotenv(Path(__file__).resolve().parent.parent / ".env", override=False)
 
 # Outbreak risk calibration thresholds
 LOW_CASE_THRESHOLD = 20.0

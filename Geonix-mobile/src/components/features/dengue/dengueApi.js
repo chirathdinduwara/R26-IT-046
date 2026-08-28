@@ -67,14 +67,29 @@ async function request(path) {
   }
 }
 
-export function fetchDengueMap() {
-  return request("/dengue/map");
+function withRefreshQuery(path, forceRefresh) {
+  if (!forceRefresh) {
+    return path;
+  }
+  const separator = path.includes("?") ? "&" : "?";
+  return `${path}${separator}refresh=true`;
 }
 
-export function fetchDengueSummary(latitude, longitude) {
+export function fetchDengueMap(latitude, longitude, forceRefresh = false) {
+  let path = "/dengue/map";
+  if (typeof latitude === "number" && typeof longitude === "number") {
+    const lat = encodeURIComponent(String(latitude));
+    const lng = encodeURIComponent(String(longitude));
+    path = `${path}?lat=${lat}&lng=${lng}`;
+  }
+  return request(withRefreshQuery(path, forceRefresh));
+}
+
+export function fetchDengueSummary(latitude, longitude, forceRefresh = false) {
   const lat = encodeURIComponent(String(latitude));
   const lng = encodeURIComponent(String(longitude));
-  return request(`/dengue/summary?lat=${lat}&lng=${lng}`);
+  const path = `/dengue/summary?lat=${lat}&lng=${lng}`;
+  return request(withRefreshQuery(path, forceRefresh));
 }
 
 export function fetchDenguePrevention() {
