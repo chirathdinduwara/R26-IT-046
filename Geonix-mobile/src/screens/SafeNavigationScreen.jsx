@@ -1,14 +1,10 @@
 import {
   ActivityIndicator,
   Alert,
-<<<<<<< HEAD
-  Linking,
-=======
   Dimensions,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
->>>>>>> 18dab5d510c938596f4c4c60ac85f0fb61e6b97e
   ScrollView,
   StyleSheet,
   Text,
@@ -17,12 +13,8 @@ import {
   TouchableWithoutFeedback,
   View,
 } from "react-native";
-<<<<<<< HEAD
-import React, { useEffect, useMemo, useState } from "react";
-=======
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
->>>>>>> 18dab5d510c938596f4c4c60ac85f0fb61e6b97e
 import * as Location from "expo-location";
 import * as Speech from "expo-speech";
 import MapView, { Circle, Marker, Polyline } from "react-native-maps";
@@ -66,13 +58,6 @@ async function parseJsonResponse(res) {
 }
 
 const MAP_TYPES = [
-<<<<<<< HEAD
-  { type: "standard", icon: "map-outline", label: "Map" },
-  { type: "satellite", icon: "satellite-variant", label: "Satellite" },
-  { type: "hybrid", icon: "layers-outline", label: "Hybrid" },
-];
-
-=======
   { type: "hybrid", icon: "layers-outline", label: "Hybrid" },
   { type: "standard", icon: "map-outline", label: "Standard" },
   { type: "satellite", icon: "satellite-variant", label: "Satellite" },
@@ -110,7 +95,6 @@ function TypewriterText({ text, speed = 20, style, cursorColor = C.amber }) {
   );
 }
 
->>>>>>> 18dab5d510c938596f4c4c60ac85f0fb61e6b97e
 export default function SafeNavigationScreen() {
   const [apiUrl, setApiUrl] = useState(DEFAULT_SAFE_ROUTE_API_URL);
   
@@ -136,13 +120,10 @@ export default function SafeNavigationScreen() {
   const [selectedRouteId, setSelectedRouteId] = useState(null);
   const [isNavigating, setIsNavigating] = useState(false);
   const [mapType, setMapType] = useState("hybrid");
-<<<<<<< HEAD
-=======
   const [rerouteAlert, setRerouteAlert] = useState(null);
   const [showRainOverlay, setShowRainOverlay] = useState(true);
   const [bottomCardExpanded, setBottomCardExpanded] = useState(true);
   const [isMuted, setIsMuted] = useState(false);
->>>>>>> 18dab5d510c938596f4c4c60ac85f0fb61e6b97e
 
   const mapRef = useRef(null);
   const rerunTimerRef = useRef(null);
@@ -236,67 +217,8 @@ export default function SafeNavigationScreen() {
     })();
   }, []);
 
-<<<<<<< HEAD
-  useEffect(() => {
-    const q = destinationQuery.trim();
-    if (destination && destination.label === q) {
-      return;
-    }
-    if (q.length < 2) {
-      setDestinationResults([]);
-      setDestinationLoading(false);
-      return;
-    }
-
-    const timer = setTimeout(() => {
-      searchDestinationSuggestions(q);
-    }, 350);
-
-    return () => clearTimeout(timer);
-  }, [destinationQuery, apiUrl]);
-
-  useEffect(() => {
-    let subscription = null;
-
-    if (isNavigating) {
-      (async () => {
-        try {
-          const { status } = await Location.requestForegroundPermissionsAsync();
-          if (status !== "granted") return;
-
-          subscription = await Location.watchPositionAsync(
-            {
-              accuracy: Location.Accuracy.BestForNavigation,
-              timeInterval: 2000,
-              distanceInterval: 5,
-            },
-            (loc) => {
-              if (loc?.coords?.latitude != null && loc?.coords?.longitude != null) {
-                setCurrentLocation({
-                  lat: Number(loc.coords.latitude.toFixed(6)),
-                  lon: Number(loc.coords.longitude.toFixed(6)),
-                });
-              }
-            }
-          );
-        } catch (e) {
-          console.warn("Location watch error:", e);
-        }
-      })();
-    }
-
-    return () => {
-      if (subscription) {
-        subscription.remove();
-      }
-    };
-  }, [isNavigating]);
-
-  const detectCurrentLocation = async (showError = true) => {
-=======
   // Multi-tier Fast Location Engine
   const detectCurrentLocation = async (showError = true, centerMap = true) => {
->>>>>>> 18dab5d510c938596f4c4c60ac85f0fb61e6b97e
     try {
       setLocationLoading(true);
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -332,16 +254,6 @@ export default function SafeNavigationScreen() {
       const posPromise = Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.High,
       });
-<<<<<<< HEAD
-      if (loc?.coords?.latitude != null && loc?.coords?.longitude != null) {
-        setCurrentLocation({
-          lat: Number(loc.coords.latitude.toFixed(6)),
-          lon: Number(loc.coords.longitude.toFixed(6)),
-        });
-      }
-      return true;
-    } catch {
-=======
       const timeoutPromise = new Promise((_, reject) =>
         setTimeout(() => reject(new Error("Timeout")), 4500),
       );
@@ -371,7 +283,6 @@ export default function SafeNavigationScreen() {
       }
       return false;
     } catch (err) {
->>>>>>> 18dab5d510c938596f4c4c60ac85f0fb61e6b97e
       if (showError) {
         Alert.alert("Location Error", "Could not fetch current location. Please check GPS settings.");
       }
@@ -615,9 +526,6 @@ export default function SafeNavigationScreen() {
 
   const handleGoSafe = () => {
     if (!safeRoute) return;
-<<<<<<< HEAD
-    setIsNavigating(true);
-=======
     Keyboard.dismiss();
     setIsNavigating(true);
     setRerouteAlert(null);
@@ -637,7 +545,6 @@ export default function SafeNavigationScreen() {
     const idx = MAP_TYPES.findIndex((t) => t.type === mapType);
     const nextIdx = (idx + 1) % MAP_TYPES.length;
     setMapType(MAP_TYPES[nextIdx].type);
->>>>>>> 18dab5d510c938596f4c4c60ac85f0fb61e6b97e
   };
 
   const selectedRoute = useMemo(() => {
@@ -653,17 +560,6 @@ export default function SafeNavigationScreen() {
   const dangerousRoute = result?.dangerous_route;
 
   const mapRegion = useMemo(() => {
-<<<<<<< HEAD
-    if (isNavigating && currentLocation) {
-      return {
-        latitude: currentLocation.lat,
-        longitude: currentLocation.lon,
-        latitudeDelta: 0.015,
-        longitudeDelta: 0.015,
-      };
-    }
-
-=======
     if (isNavigating && currentLocation?.lat) {
       return {
         latitude: currentLocation.lat,
@@ -672,7 +568,6 @@ export default function SafeNavigationScreen() {
         longitudeDelta: 0.012,
       };
     }
->>>>>>> 18dab5d510c938596f4c4c60ac85f0fb61e6b97e
     if (selectedRoute?.coordinates?.length) {
       const first = selectedRoute.coordinates[0];
       return {
@@ -696,144 +591,7 @@ export default function SafeNavigationScreen() {
       latitudeDelta: 0.20,
       longitudeDelta: 0.20,
     };
-<<<<<<< HEAD
-  }, [selectedRoute, currentLocation, destination, isNavigating]);
-
-  if (isNavigating && selectedRoute) {
-    return (
-      <View style={styles.navScreen}>
-        <MapView
-          style={styles.navMap}
-          initialRegion={mapRegion}
-          region={mapRegion}
-          showsUserLocation={true}
-          followsUserLocation={true}
-          mapType={mapType}
-        >
-          {selectedRoute?.coordinates?.length > 1 && (
-            <Polyline
-              coordinates={selectedRoute.coordinates.map((p) => ({
-                latitude: p.lat,
-                longitude: p.lon,
-              }))}
-              strokeColor={selectedRoute.type === "safe" ? C.green : C.red}
-              strokeWidth={7}
-            />
-          )}
-
-          {result?.flooded_areas?.slice(0, 40).map((zone) => zone?.centroid?.lat != null && zone?.centroid?.lon != null && (
-            <Circle
-              key={`nav-zone-${zone.id}`}
-              center={{
-                latitude: zone.centroid.lat,
-                longitude: zone.centroid.lon,
-              }}
-              radius={120}
-              fillColor="rgba(248,81,73,0.25)"
-              strokeColor="rgba(248,81,73,0.7)"
-            />
-          ))}
-
-          {result?.rainfall_areas?.map((area) => area?.center?.lat != null && area?.center?.lon != null && (
-            <React.Fragment key={`nav-rain-group-${area.id}`}>
-              <Circle
-                center={{
-                  latitude: area.center.lat,
-                  longitude: area.center.lon,
-                }}
-                radius={area.radius || 100}
-                fillColor="rgba(248,81,73,0.08)"
-                strokeColor="rgba(248,81,73,0.3)"
-              />
-              <Marker
-                coordinate={{
-                  latitude: area.center.lat,
-                  longitude: area.center.lon,
-                }}
-                title="Rainfall Zone"
-                description={`Rain: ${safeToFixed(area.intensity, 1, "0.0")} mm/h`}
-              >
-                <View style={{ backgroundColor: "#F85149", padding: 6, borderRadius: 20, borderWidth: 1.5, borderColor: "#FFFFFF", alignItems: "center", justifyContent: "center" }}>
-                  <MaterialCommunityIcons name="cloud-rain" size={16} color="#FFFFFF" />
-                </View>
-              </Marker>
-            </React.Fragment>
-          ))}
-
-          {!!currentLocation && (
-            <Marker
-              coordinate={{
-                latitude: currentLocation.lat,
-                longitude: currentLocation.lon,
-              }}
-              title="Your Location"
-            />
-          )}
-
-          {!!destination && (
-            <Marker
-              coordinate={{
-                latitude: destination.lat,
-                longitude: destination.lon,
-              }}
-              title="Destination"
-            />
-          )}
-        </MapView>
-
-        {/* Floating Dashboard Widget overlay */}
-        <View style={styles.navOverlay}>
-          <Text style={styles.navOverlayTitle}>🛡️ Navigation Assistant</Text>
-          
-          <Text style={[styles.navOverlaySafety, { color: selectedRoute.type === "safe" ? C.green : C.red }]}>
-            {selectedRoute.type === "safe" ? "🟢 Safe Route" : "🔴 Caution: Dangerous Route"} ({selectedRoute.risk_score != null ? Math.round((1 - selectedRoute.risk_score) * 100) : 100}% Safe)
-          </Text>
-
-          {/* Mini Weather metrics inside overlay */}
-          {result?.weather && (
-            <View style={styles.navWeatherRow}>
-              <Text style={styles.navWeatherText}>🌡️ {safeToFixed(result.weather.temperature, 1, "--")}°C</Text>
-              <Text style={styles.navWeatherText}>💧 {result.weather.humidity ?? "--"}%</Text>
-              <Text style={styles.navWeatherText}>🌧️ {safeToFixed(result.weather.rainfall, 1, "0.0")}mm</Text>
-              <Text style={styles.navWeatherText}>💨 {safeToFixed(result.weather.wind_speed, 1, "0.0")}km/h</Text>
-            </View>
-          )}
-
-          <ScrollView style={styles.navOverlayReasons} nestedScrollEnabled={true}>
-            {selectedRoute.safe_reasons?.map((reason, idx) => (
-              <Text key={`nav-safe-${idx}`} style={styles.navReasonText}>🟢 {reason}</Text>
-            ))}
-            {selectedRoute.danger_reasons?.map((reason, idx) => (
-              <Text key={`nav-danger-${idx}`} style={styles.navReasonText}>⚠️ {reason}</Text>
-            ))}
-          </ScrollView>
-
-          {selectedRoute.routemaster_recommendations && selectedRoute.routemaster_recommendations.length > 0 && (
-            <View style={{ padding: 8, backgroundColor: "rgba(57,213,198,0.05)", borderRadius: 8, borderWidth: 1, borderColor: C.border, marginTop: 4 }}>
-              <Text style={{ color: C.amber, fontSize: 10, fontWeight: "800", marginBottom: 2 }}>🛡️ RouteMaster AI Safety Guidelines:</Text>
-              <ScrollView style={{ maxHeight: 75 }} nestedScrollEnabled={true}>
-                {selectedRoute.routemaster_recommendations.map((rec, idx) => (
-                  <Text key={`nav-rec-${idx}`} style={{ color: C.text, fontSize: 9, marginTop: 2, lineHeight: 12 }}>
-                    • {rec}
-                  </Text>
-                ))}
-              </ScrollView>
-            </View>
-          )}
-
-          <TouchableOpacity
-            style={styles.exitBtn}
-            onPress={() => setIsNavigating(false)}
-          >
-            <Text style={styles.exitBtnText}>Exit Navigation</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  }
-=======
   }, [selectedRoute, currentLocation, effectiveOrigin, isNavigating]);
->>>>>>> 18dab5d510c938596f4c4c60ac85f0fb61e6b97e
 
   // In-Drive Navigation Full-Screen View
   if (isNavigating && selectedRoute) {
@@ -871,18 +629,6 @@ export default function SafeNavigationScreen() {
             />
           ))}
 
-<<<<<<< HEAD
-          <TouchableOpacity
-            style={styles.primaryBtn}
-            onPress={fetchRoutes}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator color={C.bg} />
-            ) : (
-              <Text style={styles.primaryBtnText}>
-                Find Safe Route
-=======
           {/* Rain Overlay */}
           {showRainOverlay && result?.rainfall_areas?.map((area) => (
             <React.Fragment key={`nav-rain-${area.id}`}>
@@ -927,7 +673,6 @@ export default function SafeNavigationScreen() {
               <Text style={styles.dockTitle}>🛡️ Geonix Safe Navigation</Text>
               <Text style={[styles.dockSafetyBadge, { color: selectedRoute.type === "safe" ? C.green : C.red }]}>
                 {selectedRoute.type === "safe" ? "🟢 Safest Route Active" : "🔴 High Risk Route"} ({Math.round((1 - selectedRoute.risk_score) * 100)}% Safety Rating)
->>>>>>> 18dab5d510c938596f4c4c60ac85f0fb61e6b97e
               </Text>
             </View>
 
@@ -1008,64 +753,6 @@ export default function SafeNavigationScreen() {
     );
   }
 
-<<<<<<< HEAD
-        {result?.weather && (
-          <View style={styles.weatherCard}>
-            <Text style={styles.weatherTitle}>🌦️ Current Weather Conditions</Text>
-            <View style={styles.weatherRow}>
-              <View style={styles.weatherItem}>
-                <Text style={styles.weatherVal}>{safeToFixed(result.weather.temperature, 1, "--")}°C</Text>
-                <Text style={styles.weatherLabel}>Temperature</Text>
-              </View>
-              <View style={styles.weatherItem}>
-                <Text style={styles.weatherVal}>{result.weather.humidity ?? "--"}%</Text>
-                <Text style={styles.weatherLabel}>Humidity</Text>
-              </View>
-              <View style={styles.weatherItem}>
-                <Text style={styles.weatherVal}>{safeToFixed(result.weather.rainfall, 1, "0.0")} mm</Text>
-                <Text style={styles.weatherLabel}>Rainfall</Text>
-              </View>
-              <View style={styles.weatherItem}>
-                <Text style={styles.weatherVal}>{safeToFixed(result.weather.wind_speed, 1, "0.0")} km/h</Text>
-                <Text style={styles.weatherLabel}>Wind Speed</Text>
-              </View>
-            </View>
-          </View>
-        )}
-
-        <View style={styles.mapTypeRow}>
-          {MAP_TYPES.map((opt, i) => {
-            const active = mapType === opt.type;
-            return (
-              <TouchableOpacity
-                key={opt.type}
-                style={[
-                  styles.mapTypeBtn,
-                  active && styles.mapTypeBtnActive,
-                  i < MAP_TYPES.length - 1 && styles.mapTypeBtnBorder,
-                ]}
-                onPress={() => setMapType(opt.type)}
-              >
-                <MaterialCommunityIcons
-                  name={opt.icon}
-                  size={14}
-                  color={active ? C.amber : C.sub}
-                />
-                <Text
-                  style={[
-                    styles.mapTypeBtnText,
-                    active && styles.mapTypeBtnTextActive,
-                  ]}
-                >
-                  {opt.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-
-        <View style={styles.mapWrap}>
-=======
   // Modern Unique Map UI View (Non-Navigation Mode) with KeyboardAvoidingView
   return (
     <KeyboardAvoidingView
@@ -1075,15 +762,12 @@ export default function SafeNavigationScreen() {
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
         <View style={StyleSheet.absoluteFillObject}>
           {/* Immersive Full Screen Background Map */}
->>>>>>> 18dab5d510c938596f4c4c60ac85f0fb61e6b97e
           <MapView
             ref={mapRef}
             style={StyleSheet.absoluteFillObject}
             initialRegion={mapRegion}
             region={mapRegion}
             mapType={mapType}
-<<<<<<< HEAD
-=======
             showsUserLocation={true}
             showsCompass={true}
             showsBuildings={true}
@@ -1091,7 +775,6 @@ export default function SafeNavigationScreen() {
               Keyboard.dismiss();
               setActiveSearchField(null);
             }}
->>>>>>> 18dab5d510c938596f4c4c60ac85f0fb61e6b97e
           >
             {safeRoute?.coordinates?.length > 1 && (
               <Polyline
@@ -1119,29 +802,6 @@ export default function SafeNavigationScreen() {
               />
             ))}
 
-<<<<<<< HEAD
-            {result?.rainfall_areas?.map((area) => area?.center?.lat != null && area?.center?.lon != null && (
-              <React.Fragment key={`rain-group-${area.id}`}>
-                <Circle
-                  center={{
-                    latitude: area.center.lat,
-                    longitude: area.center.lon,
-                  }}
-                  radius={area.radius || 100}
-                  fillColor="rgba(248,81,73,0.08)"
-                  strokeColor="rgba(248,81,73,0.3)"
-                />
-                <Marker
-                  coordinate={{
-                    latitude: area.center.lat,
-                    longitude: area.center.lon,
-                  }}
-                  title="Rainfall Zone"
-                  description={`Rain: ${safeToFixed(area.intensity, 1, "0.0")} mm/h`}
-                >
-                  <View style={{ backgroundColor: "#F85149", padding: 6, borderRadius: 20, borderWidth: 1.5, borderColor: "#FFFFFF", alignItems: "center", justifyContent: "center" }}>
-                    <MaterialCommunityIcons name="cloud-rain" size={16} color="#FFFFFF" />
-=======
             {showRainOverlay && result?.rainfall_areas?.map((area) => (
               <React.Fragment key={`rain-group-${area.id}`}>
                 <Circle
@@ -1157,17 +817,12 @@ export default function SafeNavigationScreen() {
                 >
                   <View style={styles.rainMarkerBadge}>
                     <MaterialCommunityIcons name="weather-pouring" size={14} color="#FFFFFF" />
->>>>>>> 18dab5d510c938596f4c4c60ac85f0fb61e6b97e
                   </View>
                 </Marker>
               </React.Fragment>
             ))}
 
-<<<<<<< HEAD
-            {!!currentLocation && (
-=======
             {!!effectiveOrigin && (
->>>>>>> 18dab5d510c938596f4c4c60ac85f0fb61e6b97e
               <Marker
                 coordinate={{ latitude: effectiveOrigin.lat, longitude: effectiveOrigin.lon }}
                 title={effectiveOrigin.label || "Start Location"}
@@ -1186,27 +841,6 @@ export default function SafeNavigationScreen() {
         </View>
       </TouchableWithoutFeedback>
 
-<<<<<<< HEAD
-        {result && (
-          <View style={styles.card}>
-            <Text style={styles.section}>Route Comparison</Text>
-            <TouchableOpacity
-              style={styles.safeBtn}
-              onPress={handleGoSafe}
-            >
-              <Text style={styles.safeBtnText}>Go with Safe Route</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.dangerBtn}
-              onPress={() =>
-                dangerousRoute && setSelectedRouteId(dangerousRoute.id)
-              }
-            >
-              <Text style={styles.dangerBtnText}>Show Dangerous Route</Text>
-            </TouchableOpacity>
-
-            {result.routes?.filter(route => route.type === "safe" || route.type === "dangerous").map((route) => (
-=======
       {/* Floating Top Search Header Card */}
       <View style={styles.topFloatingHeader}>
         {/* Brand Bar */}
@@ -1445,7 +1079,6 @@ export default function SafeNavigationScreen() {
 
             {/* Route Cards */}
             {result?.routes?.filter((r) => r.type === "safe" || r.type === "dangerous").map((route) => (
->>>>>>> 18dab5d510c938596f4c4c60ac85f0fb61e6b97e
               <TouchableOpacity
                 key={route.id}
                 style={[
@@ -1465,44 +1098,6 @@ export default function SafeNavigationScreen() {
                 </Text>
               </TouchableOpacity>
             ))}
-<<<<<<< HEAD
-            {selectedRoute && (
-              <View style={[styles.card, { marginTop: 12, borderLeftWidth: 4, borderLeftColor: selectedRoute.type === "safe" ? C.green : C.red }]}>
-                <Text style={styles.section}>Route Safety Assessment</Text>
-                {selectedRoute.type === "safe" ? (
-                  <Text style={[styles.meta, { color: C.green, fontWeight: "bold" }]}>
-                    Recommended Safe & Fast Route (Safety Rating: {selectedRoute.risk_score != null ? Math.round((1 - selectedRoute.risk_score) * 100) : 100}%)
-                  </Text>
-                ) : (
-                  <Text style={[styles.meta, { color: C.red, fontWeight: "bold" }]}>
-                    Use Caution: Dangerous Route Option (Safety Rating: {selectedRoute.risk_score != null ? Math.round((1 - selectedRoute.risk_score) * 100) : 100}%)
-                  </Text>
-                )}
-
-                {selectedRoute.safe_reasons?.map((reason, idx) => (
-                  <Text key={`safe-reason-${idx}`} style={styles.reasonText}>
-                    🟢 {reason}
-                  </Text>
-                ))}
-
-                {selectedRoute.danger_reasons?.map((reason, idx) => (
-                  <Text key={`danger-reason-${idx}`} style={styles.reasonText}>
-                    ⚠️ {reason}
-                  </Text>
-                ))}
-
-                {(!selectedRoute.safe_reasons?.length && !selectedRoute.danger_reasons?.length) && (
-                  <Text style={styles.meta}>No explicit weather or traffic hazards detected along this route.</Text>
-                )}
-
-                {selectedRoute.routemaster_recommendations && selectedRoute.routemaster_recommendations.length > 0 && (
-                  <View style={{ marginTop: 12, padding: 10, backgroundColor: "rgba(57,213,198,0.06)", borderRadius: 10, borderWidth: 1, borderColor: C.border }}>
-                    <Text style={{ color: C.amber, fontSize: 11, fontWeight: "800", marginBottom: 4 }}>🛡️ RouteMaster AI Safety Guidelines:</Text>
-                    {selectedRoute.routemaster_recommendations.map((rec, idx) => (
-                      <Text key={`rec-${idx}`} style={{ color: C.text, fontSize: 10, marginTop: 4, lineHeight: 14 }}>
-                        • {rec}
-                      </Text>
-=======
 
             {/* Explainable Routing Details */}
             {selectedRoute && (
@@ -1552,17 +1147,12 @@ export default function SafeNavigationScreen() {
                         <Text style={{ color: C.amber, fontSize: 10, marginRight: 4, marginTop: 1 }}>•</Text>
                         <TypewriterText text={rec} speed={18} style={styles.aiAdviceText} cursorColor={C.amber} />
                       </View>
->>>>>>> 18dab5d510c938596f4c4c60ac85f0fb61e6b97e
                     ))}
                   </View>
                 )}
               </View>
             )}
-<<<<<<< HEAD
-          </View>
-=======
           </ScrollView>
->>>>>>> 18dab5d510c938596f4c4c60ac85f0fb61e6b97e
         )}
       </View>
     </KeyboardAvoidingView>
@@ -1921,44 +1511,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 4,
   },
-<<<<<<< HEAD
-  primaryBtnText: { color: C.bg, fontWeight: "800", fontSize: 12 },
-  secondaryBtn: {
-    borderWidth: 1,
-    borderColor: C.border,
-    borderRadius: 10,
-    paddingVertical: 10,
-    alignItems: "center",
-  },
-  secondaryBtnText: { color: C.sub, fontSize: 12, fontWeight: "600" },
-  mapWrap: {
-    borderRadius: 14,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: C.border,
-  },
-  map: { height: 300, width: "100%" },
-  safeBtn: {
-    backgroundColor: C.green,
-    paddingVertical: 10,
-    alignItems: "center",
-    borderRadius: 10,
-  },
-  safeBtnText: { color: C.bg, fontWeight: "800" },
-  dangerBtn: {
-    borderWidth: 1,
-    borderColor: C.red,
-    paddingVertical: 10,
-    alignItems: "center",
-    borderRadius: 10,
-    backgroundColor: "transparent",
-  },
-  dangerBtnText: { color: C.red, fontWeight: "800" },
-  routeCard: {
-    borderWidth: 1,
-    borderColor: C.border,
-    borderRadius: 10,
-=======
   exitNavText: { color: C.red, fontWeight: "800", fontSize: 11 },
 
   rerouteBanner: {
@@ -1970,7 +1522,6 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: C.amber,
     borderRadius: 12,
->>>>>>> 18dab5d510c938596f4c4c60ac85f0fb61e6b97e
     padding: 10,
     flexDirection: "row",
     alignItems: "center",
@@ -1988,147 +1539,4 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-<<<<<<< HEAD
-  routeCardActive: { borderColor: C.amber },
-  routeTitle: { color: C.amber, fontSize: 11, fontWeight: "800" },
-  routeMeta: { color: C.sub, fontSize: 11 },
-  reasonText: { color: C.text, fontSize: 11, marginTop: 4, lineHeight: 15 },
-  weatherCard: {
-    backgroundColor: C.surface,
-    borderWidth: 1,
-    borderColor: C.border,
-    borderRadius: 14,
-    padding: 14,
-  },
-  weatherTitle: {
-    color: C.text,
-    fontSize: 13,
-    fontWeight: "700",
-    marginBottom: 10,
-  },
-  weatherRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  weatherItem: {
-    alignItems: "center",
-    flex: 1,
-  },
-  weatherVal: {
-    color: C.text,
-    fontSize: 14,
-    fontWeight: "800",
-  },
-  weatherLabel: {
-    color: C.sub,
-    fontSize: 10,
-    marginTop: 2,
-  },
-  navScreen: {
-    flex: 1,
-    backgroundColor: C.bg,
-  },
-  navMap: {
-    flex: 1,
-    width: "100%",
-    height: "100%",
-  },
-  navOverlay: {
-    position: "absolute",
-    top: 50,
-    left: 14,
-    right: 14,
-    backgroundColor: "rgba(22, 27, 34, 0.93)",
-    borderWidth: 1,
-    borderColor: C.border,
-    borderRadius: 14,
-    padding: 14,
-    maxHeight: 340,
-    gap: 8,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
-    elevation: 8,
-  },
-  navOverlayTitle: {
-    color: C.text,
-    fontSize: 13,
-    fontWeight: "800",
-  },
-  navOverlaySafety: {
-    fontSize: 12,
-    fontWeight: "700",
-    marginVertical: 2,
-  },
-  navWeatherRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    backgroundColor: "#0F141B",
-    padding: 8,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: C.border,
-  },
-  navWeatherText: {
-    color: C.text,
-    fontSize: 10,
-    fontWeight: "600",
-  },
-  navOverlayReasons: {
-    maxHeight: 80,
-    marginVertical: 4,
-  },
-  navReasonText: {
-    color: C.text,
-    fontSize: 10,
-    marginTop: 2,
-    lineHeight: 13,
-  },
-  exitBtn: {
-    backgroundColor: C.red,
-    borderRadius: 10,
-    paddingVertical: 10,
-    alignItems: "center",
-    marginTop: 4,
-  },
-  exitBtnText: {
-    color: C.text,
-    fontWeight: "800",
-    fontSize: 12,
-  },
-  mapTypeRow: {
-    flexDirection: "row",
-    alignSelf: "flex-start",
-    backgroundColor: C.surfaceHi,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: C.border,
-    overflow: "hidden",
-    marginBottom: 8,
-  },
-  mapTypeBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-  },
-  mapTypeBtnBorder: {
-    borderRightWidth: 1,
-    borderRightColor: C.border,
-  },
-  mapTypeBtnActive: {
-    backgroundColor: "rgba(255, 176, 32, 0.15)",
-  },
-  mapTypeBtnText: {
-    color: C.sub,
-    fontSize: 11,
-    fontWeight: "700",
-  },
-  mapTypeBtnTextActive: {
-    color: C.amber,
-  },
-=======
->>>>>>> 18dab5d510c938596f4c4c60ac85f0fb61e6b97e
 });
