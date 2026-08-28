@@ -10,7 +10,6 @@ import {
   TextInput,
   View,
 } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { DENGUE_API_URL } from "../config/api";
 
@@ -40,10 +39,10 @@ const FALLBACK_PREVENTION = {
 
 const C = {
   bg: "#0D1117",
-  surface: "#161B22",
-  surfaceHi: "#21262D",
+  surface: "#1C2128",
+  surfaceHi: "#262C36",
   border: "#30363D",
-  text: "#E6EDF3",
+  text: "#F0F6FC",
   sub: "#8B949E",
   amber: "#F0A500",
   amberDim: "#7A5200",
@@ -71,7 +70,7 @@ async function resolveApiBaseUrl() {
   return normalizeBaseUrl(DENGUE_API_URL);
 }
 
-export default function DengueChatbotScreen({ route }) {
+export default function DengueRiskChatScreen({ route }) {
   const prevention = useMemo(() => {
     const source = route?.params?.prevention || {};
     return {
@@ -88,7 +87,7 @@ export default function DengueChatbotScreen({ route }) {
     {
       id: "welcome",
       role: "assistant",
-      text: "Hi! I am your Dengue Safety AI assistant. Ask me anything about symptoms, local prevention, or guidelines.",
+      text: "Hi! I am your Dengue Safety AI Assistant. Ask me anything about symptoms, local vector prevention, or health guidelines.",
       showAdvice: false,
     },
   ]);
@@ -99,8 +98,7 @@ export default function DengueChatbotScreen({ route }) {
       return;
     }
     const timeId = Date.now();
-    
-    // Add user message
+
     setMessages((prev) => [
       ...prev,
       { id: `u-${timeId}`, role: "user", text: prompt },
@@ -133,15 +131,15 @@ export default function DengueChatbotScreen({ route }) {
       }
 
       const resData = await response.json();
-      
-      // Suggest prevention guides if the query contains breeding, prevention, or habits
+
       const pLower = prompt.toLowerCase();
-      const showAdvice = pLower.includes("prevent") || 
-                         pLower.includes("breed") || 
-                         pLower.includes("water") || 
-                         pLower.includes("habit") || 
-                         pLower.includes("reduce") || 
-                         pLower.includes("symptom");
+      const showAdvice =
+        pLower.includes("prevent") ||
+        pLower.includes("breed") ||
+        pLower.includes("water") ||
+        pLower.includes("habit") ||
+        pLower.includes("reduce") ||
+        pLower.includes("symptom");
 
       setMessages((prev) => [
         ...prev,
@@ -181,9 +179,9 @@ export default function DengueChatbotScreen({ route }) {
           />
         </View>
         <View style={styles.headerTextWrap}>
-          <Text style={styles.headerTitle}>Dengue Safety AI Assistant</Text>
+          <Text style={styles.headerTitle}>Dengue AI Safety Assistant</Text>
           <Text style={styles.headerSub}>
-            Live recommendations from Gemini based on local health guidelines.
+            Real-time guidance powered by Gemini AI & local health directives.
           </Text>
         </View>
       </View>
@@ -264,8 +262,8 @@ export default function DengueChatbotScreen({ route }) {
           multiline
           editable={!loading}
         />
-        <Pressable 
-          style={[styles.sendButton, loading && { opacity: 0.6 }]} 
+        <Pressable
+          style={[styles.sendButton, loading && { opacity: 0.6 }]}
           onPress={sendMessage}
           disabled={loading}
         >
@@ -288,15 +286,15 @@ const styles = StyleSheet.create({
     backgroundColor: C.surface,
     borderWidth: 1,
     borderColor: C.border,
-    borderRadius: 14,
+    borderRadius: 16,
     padding: 12,
     flexDirection: "row",
     gap: 10,
   },
   headerIconWrap: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: C.amberDim + "44",
@@ -325,7 +323,7 @@ const styles = StyleSheet.create({
   },
   messageBubble: {
     maxWidth: "90%",
-    borderRadius: 14,
+    borderRadius: 16,
     padding: 12,
     borderWidth: 1,
   },

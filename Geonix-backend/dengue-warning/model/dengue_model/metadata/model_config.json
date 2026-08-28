@@ -1,0 +1,21 @@
+{
+    "model_version": "1.0.0",
+    "algorithm": "XGBoost",
+    "forecast_horizons": [
+        "current_week",
+        "week_1",
+        "week_2"
+    ],
+    "risk_classes": [
+        "Low",
+        "Medium",
+        "High"
+    ],
+    "risk_thresholds": {
+        "Low": "<10 cases",
+        "Medium": "10-30 cases",
+        "High": ">30 cases"
+    },
+    "feature_count": 22,
+    "random_state": 42
+}
