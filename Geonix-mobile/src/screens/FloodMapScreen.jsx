@@ -8,7 +8,7 @@ import {
   Animated,
   Alert,
 } from "react-native";
-import MapView, { Polygon, Marker } from "react-native-maps";
+import MapView, { Polygon, Marker, PROVIDER_GOOGLE } from "react-native-maps";
 import { useEffect, useState, useRef } from "react";
 import * as Location from "expo-location";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
@@ -466,6 +466,7 @@ export default function FloodMapScreen() {
 
       {/* ── Map ──────────────────────────────────────────────────────────── */}
       <MapView
+        provider={PROVIDER_GOOGLE}
         ref={mapRef}
         style={styles.map}
         mapType={mapType}

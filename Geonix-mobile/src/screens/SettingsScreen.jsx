@@ -15,7 +15,20 @@ import {
 import { useState, useEffect, useRef } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
-import { API_BASE_URL } from "../config/api";
+import { 
+  API_BASE_URL, 
+  DENGUE_API_URL, 
+  FLOOD_API_URL, 
+  PADDY_API_URL, 
+  SAFE_ROUTE_API_URL 
+} from "../config/api";
+
+const BACKENDS = {
+  dengue: { label: "Dengue Backend", url: DENGUE_API_URL },
+  flood: { label: "Flood Backend", url: FLOOD_API_URL },
+  paddy: { label: "Paddy Backend", url: PADDY_API_URL },
+  safe_route: { label: "Safe Route Backend", url: SAFE_ROUTE_API_URL }
+};
 
 // ── Storage key ───────────────────────────────────────────────────────────────
 const STORAGE_KEY = "@flood_app_settings";
@@ -34,6 +47,8 @@ const DEFAULT_SETTINGS = {
   showFloodZoneLabels: true,
   polygonOpacity: "40", // percent string
   refreshIntervalMin: "15",
+  safeRouteSpeak: true,
+  safeRouteRerunMin: "10",
 };
 
 // ── Theme ─────────────────────────────────────────────────────────────────────
@@ -255,27 +270,58 @@ export default function SettingsScreen() {
     );
   };
 
+  const [selectedBackend, setSelectedBackend] = useState("dengue");
+  const [pingText, setPingText] = useState("");
+
+  const cleanUrl = (url) => {
+    if (!url) return "";
+    let trimmed = url.trim();
+    if (!/^https?:\/\//i.test(trimmed)) {
+      trimmed = `https://${trimmed}`;
+    }
+    return trimmed;
+  };
+
   // ── Ping API ──────────────────────────────────────────────────────────────
   const pingApi = async () => {
     setPingStatus("checking");
     setPingMs(null);
+    setPingText("Pinging...");
     const start = Date.now();
     
+    const targetBackend = BACKENDS[selectedBackend];
+    const cleanedUrl = cleanUrl(targetBackend.url);
+    
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
     
     try {
-      const res = await fetch(`${API_BASE_URL}/health`, {
+      const res = await fetch(`${cleanedUrl}/health`, {
         signal: controller.signal,
       });
       clearTimeout(timeoutId);
-      if (!res.ok) throw new Error("non-2xx");
-      setPingMs(Date.now() - start);
+      
+      const latency = Date.now() - start;
+      setPingMs(latency);
+      
+      if (!res.ok) {
+        // Fallback check to root URL directly
+        const fallbackController = new AbortController();
+        const fallbackTimeout = setTimeout(() => fallbackController.abort(), 4000);
+        const fallbackRes = await fetch(cleanedUrl, {
+          signal: fallbackController.signal,
+        });
+        clearTimeout(fallbackTimeout);
+        if (!fallbackRes.ok) throw new Error("non-2xx");
+      }
+      
       setPingStatus("ok");
+      setPingText(`${targetBackend.label} is online : ${latency}ms`);
     } catch (err) {
       clearTimeout(timeoutId);
-      console.log("Ping failed:", err);
+      console.log(`Ping to ${targetBackend.label} failed:`, err);
       setPingStatus("fail");
+      setPingText(`${targetBackend.label} is offline`);
     }
   };
 
@@ -321,58 +367,90 @@ export default function SettingsScreen() {
         <SectionHeader icon="server-network" label="SERVER" />
 
          <View style={styles.card}>
-          <SettingRow
-            label="API Base URL"
-            sub="Configured in .env file"
-          >
-            <Text style={{ color: C.text, fontFamily: Platform.OS === "ios" ? "Courier New" : "monospace", fontSize: 13 }}>
-              {API_BASE_URL}
-            </Text>
-          </SettingRow>
+           {/* Selector Tabs Row */}
+           <View style={styles.row}>
+             <View style={styles.rowLeft}>
+               <Text style={styles.rowLabel}>Select Backend Service</Text>
+               <Text style={styles.rowSub}>Choose a backend API to test connection</Text>
+             </View>
+           </View>
 
-          {/* Ping row */}
-          <View style={[styles.row, styles.rowLast]}>
-            <View style={styles.rowLeft}>
-              <View
-                style={{ flexDirection: "row", alignItems: "center", gap: 7 }}
-              >
-                <PingDot status={pingStatus} />
-                <Text style={styles.rowLabel}>Connection</Text>
-              </View>
-              <Text style={styles.rowSub}>
-                {pingStatus === "ok"
-                  ? `Online · ${pingMs}ms`
-                  : pingStatus === "fail"
-                    ? "Unreachable"
-                    : pingStatus === "checking"
-                      ? "Pinging…"
-                      : "Not tested"}
-              </Text>
-            </View>
-            <TouchableOpacity
-              style={[
-                styles.ghostBtn,
-                pingStatus === "checking" && styles.ghostBtnDisabled,
-              ]}
-              onPress={pingApi}
-              disabled={pingStatus === "checking"}
-              activeOpacity={0.75}
-            >
-              {pingStatus === "checking" ? (
-                <ActivityIndicator size="small" color={C.amber} />
-              ) : (
-                <>
-                  <MaterialCommunityIcons
-                    name="lightning-bolt"
-                    size={13}
-                    color={C.amber}
-                  />
-                  <Text style={styles.ghostBtnText}>Test</Text>
-                </>
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
+           <View style={styles.backendTabContainer}>
+             {Object.keys(BACKENDS).map((key) => {
+               const isActive = selectedBackend === key;
+               const labelMap = {
+                 dengue: "Dengue",
+                 flood: "Flood",
+                 paddy: "Paddy",
+                 safe_route: "Safe Nav"
+               };
+               return (
+                 <TouchableOpacity
+                   key={key}
+                   style={[styles.backendTab, isActive && styles.backendTabActive]}
+                   onPress={() => {
+                     setSelectedBackend(key);
+                     setPingStatus("idle");
+                     setPingMs(null);
+                     setPingText("");
+                   }}
+                   activeOpacity={0.78}
+                 >
+                   <Text style={[styles.backendTabText, isActive && styles.backendTabTextActive]}>
+                     {labelMap[key]}
+                   </Text>
+                 </TouchableOpacity>
+               );
+             })}
+           </View>
+
+           {/* Selected URL Row */}
+           <SettingRow
+             label="Selected API URL"
+             sub="Configured in .env file"
+           >
+             <Text numberOfLines={1} ellipsizeMode="tail" style={{ color: C.text, fontFamily: Platform.OS === "ios" ? "Courier New" : "monospace", fontSize: 11, maxWidth: 170 }}>
+               {BACKENDS[selectedBackend].url}
+             </Text>
+           </SettingRow>
+
+           {/* Connection Ping row */}
+           <View style={[styles.row, styles.rowLast]}>
+             <View style={styles.rowLeft}>
+               <View
+                 style={{ flexDirection: "row", alignItems: "center", gap: 7 }}
+               >
+                 <PingDot status={pingStatus} />
+                 <Text style={styles.rowLabel}>Connection Status</Text>
+               </View>
+               <Text style={styles.rowSub}>
+                 {pingText || "Not tested"}
+               </Text>
+             </View>
+             <TouchableOpacity
+               style={[
+                 styles.ghostBtn,
+                 pingStatus === "checking" && styles.ghostBtnDisabled,
+               ]}
+               onPress={pingApi}
+               disabled={pingStatus === "checking"}
+               activeOpacity={0.75}
+             >
+               {pingStatus === "checking" ? (
+                 <ActivityIndicator size="small" color={C.amber} />
+               ) : (
+                 <>
+                   <MaterialCommunityIcons
+                     name="lightning-bolt"
+                     size={13}
+                     color={C.amber}
+                   />
+                   <Text style={styles.ghostBtnText}>Test</Text>
+                 </>
+               )}
+             </TouchableOpacity>
+           </View>
+         </View>
 
         {/* ════════ ALERT THRESHOLDS ════════ */}
         <SectionHeader
@@ -530,6 +608,40 @@ export default function SettingsScreen() {
           </SettingRow>
         </View>
 
+        {/* ════════ SAFE ROUTE NAVIGATION ════════ */}
+        <SectionHeader
+          icon="navigation-variant-outline"
+          label="SAFE ROUTE NAVIGATION"
+          accent={C.safe}
+        />
+
+        <View style={styles.card}>
+          <SettingRow
+            label="RouteMaster AI Voice Alerts"
+            sub="Speak safety recommendations while navigating"
+          >
+            <StyledSwitch
+              value={settings.safeRouteSpeak}
+              onValueChange={(v) => patch("safeRouteSpeak", v)}
+            />
+          </SettingRow>
+          <SettingRow
+            label="Model Re-run Frequency"
+            sub="Interval (min) to re-evaluate road risk while navigating"
+            last
+          >
+            <SegmentControl
+              value={settings.safeRouteRerunMin}
+              onChange={(v) => patch("safeRouteRerunMin", v)}
+              options={[
+                { label: "5m", value: "5" },
+                { label: "10m", value: "10" },
+                { label: "15m", value: "15" },
+              ]}
+            />
+          </SettingRow>
+        </View>
+
         {/* ════════ DATA ════════ */}
         <SectionHeader icon="database-refresh-outline" label="DATA" />
 
@@ -633,7 +745,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingTop: Platform.OS === "ios" ? 58 : 18,
+    paddingTop: Platform.OS === "ios" ? 58 : 24,
     paddingBottom: 14,
     paddingHorizontal: 20,
     backgroundColor: C.surface,
@@ -916,5 +1028,36 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: C.safe,
     fontWeight: "600",
+  },
+
+  // ── Backend Selector Styles ────────────────────────────────────────────────
+  backendTabContainer: {
+    flexDirection: "row",
+    gap: 6,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    justifyContent: "space-between",
+  },
+  backendTab: {
+    flex: 1,
+    paddingVertical: 9,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: C.border,
+    backgroundColor: C.surfaceHi,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  backendTabActive: {
+    borderColor: C.amber,
+    backgroundColor: C.amberDim + "33",
+  },
+  backendTabText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: C.sub,
+  },
+  backendTabTextActive: {
+    color: C.amber,
   },
 });

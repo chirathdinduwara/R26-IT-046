@@ -1,16 +1,20 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 from typing import Dict
 
 import numpy as np
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from dotenv import load_dotenv
 
 from .dengue_router import router as dengue_router
 from .gemini_client import GeminiCalibrationError, GeminiConfig, GeminiRiskCalibrator
 from .model_manager import MODEL_PATH, model_manager
 from .schemas import RiskScoreRequest, RiskScoreResponse
+
+load_dotenv(Path(__file__).resolve().parent.parent / ".env", override=False)
 
 # Outbreak risk calibration thresholds
 LOW_CASE_THRESHOLD = 20.0
@@ -61,14 +65,15 @@ def _alert_from_zone(zone: str) -> str:
 @app.get("/health")
 def health() -> Dict[str, object]:
     status = model_manager.get_status()
+    has_model = len(model_manager.models) > 0
     return {
         "status": "ok",
-        "model_loaded": status["model_type"] != "None",
-        "feature_count": status["feature_count"],
-        "scaler_enabled": status["scaler_enabled"],
+        "model_loaded": has_model,
+        "feature_count": status.get("feature_count", 0),
+        "scaler_enabled": getattr(model_manager, "scaler_enabled", False),
         "gemini_enabled": gemini_calibrator is not None,
-        "model_type": status["model_type"],
-        "last_modified": status["last_modified"],
+        "model_type": status.get("algorithm", "Unknown"),
+        "last_modified": status.get("last_modified", {}),
     }
 
 @app.post("/score", response_model=RiskScoreResponse)

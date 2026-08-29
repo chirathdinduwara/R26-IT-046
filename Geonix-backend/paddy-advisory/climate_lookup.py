@@ -1,5 +1,17 @@
-
 import joblib
+import pandas as pd
+from pandas.core.arrays._mixins import NDArrayBackedExtensionArray
+
+# Monkeypatch pandas NDArrayBackedExtensionArray.__setstate__ to support backward compatibility
+# when loading pickle files created by older versions of pandas.
+_orig_ndarray_setstate = NDArrayBackedExtensionArray.__setstate__
+
+def _patched_ndarray_setstate(self, state):
+    if isinstance(state, tuple) and len(state) == 2 and (state[0] is str or state[0] == "str"):
+        state = (pd.StringDtype(), state[1], {})
+    return _orig_ndarray_setstate(self, state)
+
+NDArrayBackedExtensionArray.__setstate__ = _patched_ndarray_setstate
 
 _lookup = joblib.load("model/paddy_climate_lookup.pkl")
 
