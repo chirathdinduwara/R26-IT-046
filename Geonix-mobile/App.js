@@ -1,11 +1,16 @@
 import React, { useCallback, useState } from "react";
 import { StatusBar } from "expo-status-bar";
-import { StyleSheet, View } from "react-native";
+import { LogBox, StyleSheet, View } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import * as SplashScreen from "expo-splash-screen";
 import { useFonts } from "expo-font";
 import BottomNav from "./src/components/BottomNav.jsx";
 import AnimatedSplash from "./src/screens/AnimatedSplashScreen.jsx";
+
+// Suppress the SDK 53 expo-notifications remote push notifications warning/error in Expo Go
+LogBox.ignoreLogs([
+  "expo-notifications: Android Push notifications (remote notifications) functionality",
+]);
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
