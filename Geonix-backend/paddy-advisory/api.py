@@ -26,9 +26,6 @@ from climate_lookup import (
 )
 
 
-# ============================================================
-# FASTAPI APP
-# ============================================================
 
 app = FastAPI(
     title="Paddy Advisory API",
@@ -37,9 +34,6 @@ app = FastAPI(
 )
 
 
-# ============================================================
-# CORS
-# ============================================================
 
 app.add_middleware(
     CORSMiddleware,
@@ -50,9 +44,6 @@ app.add_middleware(
 )
 
 
-# ============================================================
-# BASE DIRECTORY
-# ============================================================
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -62,9 +53,6 @@ print("BASE DIR:", BASE_DIR)
 print("==============================================")
 
 
-# ============================================================
-# FILE PATHS
-# ============================================================
 
 LOCATION_CSV = BASE_DIR / "data" / "locations.csv"
 
@@ -86,9 +74,6 @@ MODEL_PATH = (
 )
 
 
-# ============================================================
-# FILE CHECK
-# ============================================================
 
 print("Location CSV:", LOCATION_CSV)
 print("Location CSV exists:", LOCATION_CSV.exists())
@@ -108,9 +93,6 @@ print("Model exists:", MODEL_PATH.exists())
 print("==============================================")
 
 
-# ============================================================
-# LOAD MODEL
-# ============================================================
 
 try:
     if MODEL_PATH.exists():
@@ -125,9 +107,6 @@ except Exception as e:
     model = None
 
 
-# ============================================================
-# LOCATION CSV
-# ============================================================
 
 def load_locations():
 
@@ -196,9 +175,6 @@ def load_locations():
     return locations
 
 
-# ============================================================
-# ROOT
-# ============================================================
 
 @app.get("/")
 def root():
@@ -218,9 +194,7 @@ def root():
     }
 
 
-# ============================================================
 # HEALTH
-# ============================================================
 
 @app.get("/health")
 def health():
@@ -236,9 +210,6 @@ def health():
     }
 
 
-# ============================================================
-# DISTRICTS
-# ============================================================
 
 @app.get("/districts")
 def get_districts():
@@ -285,9 +256,6 @@ def get_districts():
         )
 
 
-# ============================================================
-# CITIES
-# ============================================================
 
 @app.get("/cities/{district}")
 def get_cities(district: str):
@@ -351,9 +319,6 @@ def get_cities(district: str):
         )
 
 
-# ============================================================
-# LOCATION
-# ============================================================
 
 @app.get("/location/{district}/{city}")
 def get_location(
@@ -419,9 +384,6 @@ def get_location(
         )
 
 
-# ============================================================
-# LOCATION HELPER
-# ============================================================
 
 def get_location_info(
     district: str,
@@ -457,9 +419,6 @@ def get_location_info(
     return None
 
 
-# ============================================================
-# FARMER INPUT
-# ============================================================
 
 class FarmerInput(BaseModel):
 
@@ -470,9 +429,6 @@ class FarmerInput(BaseModel):
     crop_week: int
 
 
-# ============================================================
-# SOIL
-# ============================================================
 
 def get_soil(district):
 
@@ -523,10 +479,6 @@ def get_soil(district):
         ).strip(),
     }
 
-
-# ============================================================
-# CULTIVATION
-# ============================================================
 
 def get_cultivation(
     district,
@@ -616,10 +568,6 @@ def get_cultivation(
     }
 
 
-# ============================================================
-# YIELD HISTORY
-# ============================================================
-
 def get_yield_history_features(
     district,
     season,
@@ -688,10 +636,6 @@ def get_yield_history_features(
     )
 
 
-# ============================================================
-# RISK
-# ============================================================
-
 def calculate_risk(
     rain,
     temp,
@@ -712,10 +656,6 @@ def calculate_risk(
     return "Low Risk"
 
 
-# ============================================================
-# WATER
-# ============================================================
-
 def detect_water_condition(
     total_rainfall,
     zone,
@@ -731,10 +671,6 @@ def detect_water_condition(
 
     return "Irrigated"
 
-
-# ============================================================
-# FERTILIZER
-# ============================================================
 
 def recommend_fertilizer(
     zone,
@@ -870,18 +806,11 @@ def recommend_fertilizer(
     }
 
 
-# ============================================================
-# PREDICTION
-# ============================================================
 
 @app.post("/predict")
 def predict(data: FarmerInput):
 
     try:
-
-        # ----------------------------------------------------
-        # MODEL
-        # ----------------------------------------------------
 
         if model is None:
 
@@ -890,9 +819,6 @@ def predict(data: FarmerInput):
                 detail="Paddy prediction model is not loaded.",
             )
 
-        # ----------------------------------------------------
-        # INPUT VALIDATION
-        # ----------------------------------------------------
 
         if data.farm_size_hectare <= 0:
 
@@ -907,10 +833,6 @@ def predict(data: FarmerInput):
                 status_code=400,
                 detail="Crop week must be greater than zero.",
             )
-
-        # ----------------------------------------------------
-        # SEASON
-        # ----------------------------------------------------
 
         season = (
             data.season
@@ -927,9 +849,6 @@ def predict(data: FarmerInput):
                 ),
             }
 
-        # ----------------------------------------------------
-        # LOCATION
-        # ----------------------------------------------------
 
         loc_info = get_location_info(
             data.district,
@@ -949,9 +868,6 @@ def predict(data: FarmerInput):
         district = loc_info["district"]
         city = loc_info["city"]
 
-        # ----------------------------------------------------
-        # WEATHER
-        # ----------------------------------------------------
 
         weather_forecast = (
             get_forecast_weather(
@@ -967,7 +883,6 @@ def predict(data: FarmerInput):
             )
         )
 
-        # Keep the original dictionary intact
         weather_data = dict(
             weather_forecast
         )
@@ -977,9 +892,6 @@ def predict(data: FarmerInput):
             None,
         )
 
-        # ----------------------------------------------------
-        # RECENT WEATHER
-        # ----------------------------------------------------
 
         recent_weather = (
             get_recent_actual_weather(
@@ -989,9 +901,6 @@ def predict(data: FarmerInput):
             )
         )
 
-        # ----------------------------------------------------
-        # SEASONAL CLIMATE
-        # ----------------------------------------------------
 
         seasonal_climate = (
             get_seasonal_climate_estimate(
@@ -1002,17 +911,10 @@ def predict(data: FarmerInput):
             )
         )
 
-        # ----------------------------------------------------
-        # SOIL
-        # ----------------------------------------------------
-
         soil = get_soil(
             district
         )
 
-        # ----------------------------------------------------
-        # WATER
-        # ----------------------------------------------------
 
         water_condition = (
             detect_water_condition(
@@ -1023,9 +925,6 @@ def predict(data: FarmerInput):
             )
         )
 
-        # ----------------------------------------------------
-        # FERTILIZER
-        # ----------------------------------------------------
 
         crop_duration = "3 Month"
 
@@ -1038,9 +937,6 @@ def predict(data: FarmerInput):
             )
         )
 
-        # ----------------------------------------------------
-        # CULTIVATION
-        # ----------------------------------------------------
 
         cultivation = (
             get_cultivation(
@@ -1049,9 +945,6 @@ def predict(data: FarmerInput):
             )
         )
 
-        # ----------------------------------------------------
-        # HISTORY
-        # ----------------------------------------------------
 
         (
             yield_lag_1,
@@ -1061,9 +954,6 @@ def predict(data: FarmerInput):
             season,
         )
 
-        # ----------------------------------------------------
-        # MODEL DATA
-        # ----------------------------------------------------
 
         input_data = {
             "District": district,
@@ -1085,9 +975,6 @@ def predict(data: FarmerInput):
             [input_data]
         )
 
-        # ----------------------------------------------------
-        # FEATURE ENGINEERING
-        # ----------------------------------------------------
 
         df["temp_range"] = (
             df["max_temp"]
@@ -1143,33 +1030,20 @@ def predict(data: FarmerInput):
             )
         )
 
-        # ----------------------------------------------------
-        # PREDICTION
-        # ----------------------------------------------------
-
         predicted = float(
             model.predict(df)[0]
         )
 
-        # Avoid negative prediction
         predicted = max(
             0,
             predicted
         )
-
-        # ----------------------------------------------------
-        # PRODUCTION
-        # ----------------------------------------------------
 
         production = (
             predicted
             *
             data.farm_size_hectare
         ) / 1000
-
-        # ----------------------------------------------------
-        # RISK
-        # ----------------------------------------------------
 
         risk = calculate_risk(
             weather_data[
@@ -1179,10 +1053,6 @@ def predict(data: FarmerInput):
                 "avg_temp"
             ],
         )
-
-        # ----------------------------------------------------
-        # CROP STAGE
-        # ----------------------------------------------------
 
         crop_stage, rules = (
             get_crop_calendar_rules(
@@ -1194,10 +1064,6 @@ def predict(data: FarmerInput):
                 ],
             )
         )
-
-        # ----------------------------------------------------
-        # AI CONTEXT
-        # ----------------------------------------------------
 
         ai_context = {
 
@@ -1260,17 +1126,11 @@ def predict(data: FarmerInput):
                 fertilizer["Zinc_kg_ha"],
         }
 
-        # ----------------------------------------------------
-        # AI ADVICE
-        # ----------------------------------------------------
 
         advice = generate_ai_advice(
             ai_context
         )
 
-        # ----------------------------------------------------
-        # RESPONSE
-        # ----------------------------------------------------
 
         return {
 
@@ -1283,6 +1143,15 @@ def predict(data: FarmerInput):
             "City":
                 city,
 
+            "Season":
+                season,
+
+            "Crop_Week":
+                data.crop_week,
+
+            "Farm_Size_Hectare":
+                round(data.farm_size_hectare, 2),
+
             "Predicted_Yield":
                 round(predicted, 2),
 
@@ -1294,6 +1163,15 @@ def predict(data: FarmerInput):
 
             "Crop_Stage":
                 crop_stage,
+
+            "Soil_pH":
+                round(soil["pH"], 2),
+
+            "Soil_Type":
+                soil["soil_type"],
+
+            "Zone":
+                soil["zone"],
 
             "Recommended_Fertilizer":
                 fertilizer,
@@ -1310,6 +1188,36 @@ def predict(data: FarmerInput):
             "Advisory_Sinhala":
                 advice.get(
                     "sinhala",
+                    "",
+                ),
+
+            "AI_Insight_English":
+                advice.get(
+                    "insight_english",
+                    "",
+                ),
+
+            "AI_Insight_Sinhala":
+                advice.get(
+                    "insight_sinhala",
+                    "",
+                ),
+
+            "AI_Priority_Level":
+                advice.get(
+                    "priority_level",
+                    "Normal",
+                ),
+
+            "AI_Priority_Action_English":
+                advice.get(
+                    "priority_action_english",
+                    "",
+                ),
+
+            "AI_Priority_Action_Sinhala":
+                advice.get(
+                    "priority_action_sinhala",
                     "",
                 ),
 

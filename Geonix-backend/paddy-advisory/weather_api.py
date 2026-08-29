@@ -53,13 +53,6 @@ def get_forecast_weather(lat: float, lon: float):
 
 
 def get_recent_actual_weather(lat: float, lon: float, days: int = 30) -> dict:
-    """
-    Gets recent observed weather for the exact farmer location.
-
-    This is NOT tied to Maha/Yala calendar dates.
-    It is used to make the ML climate input responsive to
-    the farmer's current local weather.
-    """
 
     today = date.today()
     start_date = today - timedelta(days=days)
