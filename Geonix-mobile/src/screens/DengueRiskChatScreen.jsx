@@ -59,7 +59,9 @@ function normalizeBaseUrl(value) {
   if (typeof value !== "string") return "";
   let normalized = value.trim();
   if (!normalized) return "";
-  normalized = normalized.replace(/^httpx:\/\//i, "http://").replace(/^httpsx:\/\//i, "https://");
+  normalized = normalized
+    .replace(/^httpx:\/\//i, "http://")
+    .replace(/^httpsx:\/\//i, "https://");
   if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(normalized)) {
     normalized = `http://${normalized}`;
   }
@@ -107,7 +109,7 @@ export default function DengueRiskChatScreen({ route }) {
     setLoading(true);
 
     try {
-      const baseUrl = await resolveApiBaseUrl();
+      // const baseUrl = await resolveApiBaseUrl();
       const history = messages
         .filter((m) => m.id !== "welcome")
         .map((m) => ({
@@ -115,16 +117,20 @@ export default function DengueRiskChatScreen({ route }) {
           text: m.text,
         }));
 
+      const baseUrl = "https://r26-it-046-production-685e.up.railway.app";
+
       const response = await fetch(`${baseUrl}/dengue/chat`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
+
         body: JSON.stringify({
           message: prompt,
           history: history,
         }),
       });
+      console.log("FULL URL:", `${baseUrl}/dengue/chat`);
 
       if (!response.ok) {
         throw new Error("Failed to get chat response");
@@ -245,9 +251,17 @@ export default function DengueRiskChatScreen({ route }) {
         ))}
 
         {loading ? (
-          <View style={[styles.messageBubble, styles.assistantBubble, styles.loadingBubble]}>
+          <View
+            style={[
+              styles.messageBubble,
+              styles.assistantBubble,
+              styles.loadingBubble,
+            ]}
+          >
             <ActivityIndicator size="small" color={C.amber} />
-            <Text style={[styles.messageText, { color: C.sub, marginLeft: 8 }]}>AI is thinking...</Text>
+            <Text style={[styles.messageText, { color: C.sub, marginLeft: 8 }]}>
+              AI is thinking...
+            </Text>
           </View>
         ) : null}
       </ScrollView>
