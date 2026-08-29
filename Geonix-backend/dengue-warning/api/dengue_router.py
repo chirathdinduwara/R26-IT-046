@@ -244,10 +244,13 @@ def dengue_chat(
 
     from dotenv import load_dotenv
 
+    # override=False (default) so that real environment variables
+    # injected by the platform (e.g. Railway's Variables tab) always
+    # take precedence over anything found in a local .env file.
     load_dotenv(
         Path(__file__).resolve().parent.parent
         / ".env",
-        override=True,
+        override=False,
     )
 
     api_key = os.getenv(
@@ -750,7 +753,9 @@ def get_ai_explanation(
     from .gemini_client import GeminiConfig, GeminiExplainer
     from dotenv import load_dotenv
     import os
-    load_dotenv(Path(__file__).resolve().parent.parent / ".env", override=True)
+    # override=False so Railway's injected variables win over any
+    # local .env file that might exist in the deployment.
+    load_dotenv(Path(__file__).resolve().parent.parent / ".env", override=False)
     
     api_key = os.getenv("GEMINI_API_KEY", "").strip()
     model = os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
