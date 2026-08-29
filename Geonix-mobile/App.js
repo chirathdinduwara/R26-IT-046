@@ -36,7 +36,7 @@ export default function App() {
     <View style={styles.container} onLayout={onLayoutRootView}>
       <NavigationContainer>
         <BottomNav />
-        <StatusBar style="auto" />
+        <StatusBar style="light" backgroundColor="#0D1117" translucent={false} />
       </NavigationContainer>
 
       {!splashAnimationDone && (
