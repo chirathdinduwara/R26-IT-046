@@ -1087,18 +1087,33 @@ def get_realtime_weather(
 
     # ----------------------------------------------------------
     # API key
+    #
+    # Check the real process environment first (this is how
+    # Railway, and any other host, actually injects env vars).
+    # Only fall back to reading a local .env file directly for
+    # local development, since dotenv_values() never looks at
+    # os.environ on its own.
     # ----------------------------------------------------------
 
-    from pathlib import Path
-    from dotenv import dotenv_values
+    api_key = os.getenv(
+        "dengue_OPENWEATHER_API_KEY",
+        "",
+    ).strip()
 
-    env_path = Path(__file__).resolve().parent.parent / ".env"
-    env_vars = dotenv_values(env_path)
-    api_key = env_vars.get("dengue_OPENWEATHER_API_KEY", "").strip()
+    if not api_key:
+
+        from pathlib import Path
+        from dotenv import dotenv_values
+
+        env_path = Path(__file__).resolve().parent.parent / ".env"
+        env_vars = dotenv_values(env_path)
+        api_key = env_vars.get("dengue_OPENWEATHER_API_KEY", "").strip()
 
     if not api_key:
         raise RuntimeError(
-            "dengue_OPENWEATHER_API_KEY is missing in dengue-warning/.env; "
+            "dengue_OPENWEATHER_API_KEY is missing. Set it as an "
+            "environment variable (e.g. in Railway) or in "
+            "dengue-warning/.env for local development; "
             "cannot fetch real-time weather."
         )
 

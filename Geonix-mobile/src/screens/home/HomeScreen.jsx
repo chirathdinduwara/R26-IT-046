@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -7,6 +8,7 @@ import {
   StatusBar,
   Dimensions,
   Platform,
+  Animated,
 } from "react-native";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
@@ -167,6 +169,26 @@ function NavCard({ item, onPress, index }) {
 // ── Screen ────────────────────────────────────────────────────────────────────
 export default function HomeScreen() {
   const navigation = useNavigation();
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 0.25,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    pulse.start();
+    return () => pulse.stop();
+  }, [pulseAnim]);
 
   return (
     <View style={styles.screen}>
@@ -191,12 +213,12 @@ export default function HomeScreen() {
               />
               <Text style={styles.headerEyebrow}>COLOMBO DISTRICT · LK</Text>
             </View>
-            <Text style={styles.headerTitle}>Disaster{"\n"}Monitor</Text>
+            <Text style={styles.headerTitle}>Geonix Mobile</Text>
           </View>
 
           {/* Live badge */}
           <View style={styles.liveBadge}>
-            <View style={styles.liveDot} />
+            <Animated.View style={[styles.liveDot, { opacity: pulseAnim }]} />
             <Text style={styles.liveBadgeText}>LIVE</Text>
           </View>
         </View>
@@ -249,7 +271,7 @@ const styles = StyleSheet.create({
   // ── Header ──────────────────────────────────────────────────────────────────
   header: {
     backgroundColor: C.surface,
-    paddingTop: Platform.OS === "ios" ? 58 : 32,
+    paddingTop: Platform.OS === "ios" ? 58 : 45,
     paddingBottom: 0,
     overflow: "hidden",
     borderBottomWidth: 0,
@@ -347,13 +369,24 @@ const styles = StyleSheet.create({
   },
 
   // Weather wrapper
-  weatherWrap: {
-    borderRadius: 14,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: C.border,
-    marginBottom: 4,
+weatherWrap: {
+  borderRadius: 24,
+  overflow: "hidden",
+  marginBottom: 16,
+  backgroundColor: "rgba(255, 255, 255, 0.10)",
+  borderWidth: 1,
+  borderColor: "rgba(255, 255, 255, 0.18)",
+  shadowColor: "#000",
+  shadowOffset: {
+    width: 0,
+    height: 10,
   },
+  shadowOpacity: 0.25,
+  shadowRadius: 20,
+  elevation: 10,
+  paddingHorizontal: 20,
+  paddingVertical: 14,
+},
 
   // Section divider
   sectionRow: {
