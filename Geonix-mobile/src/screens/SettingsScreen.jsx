@@ -670,7 +670,7 @@ export default function SettingsScreen() {
 
         <View style={styles.card}>
           {[
-            { label: "App", value: "Flood Monitor" },
+            { label: "App", value: "Climate Aware Risk Monitor" },
             { label: "Version", value: "1.0.0" },
             { label: "Region", value: "Kelani Basin, LK" },
             { label: "Data", value: "Open-Meteo · IRD" },
