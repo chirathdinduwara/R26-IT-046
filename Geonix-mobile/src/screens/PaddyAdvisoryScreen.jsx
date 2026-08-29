@@ -117,8 +117,6 @@ export default function PaddyAdvisoryScreen() {
   const [loading, setLoading] = useState(false);
   const [language, setLanguage] = useState("en");
   const [expandedAdvice, setExpandedAdvice] = useState(0);
-
-  // Pure React Native pinch zoom. No Reanimated/NativeWorklets dependency.
   const dashboardScale = useRef(new Animated.Value(1)).current;
   const dashboardTranslateX = useRef(new Animated.Value(0)).current;
   const dashboardTranslateY = useRef(new Animated.Value(0)).current;
@@ -220,10 +218,6 @@ export default function PaddyAdvisoryScreen() {
     ]).start();
   };
 
-  // --------------------------------------------------
-  // GET PREDICTION
-  // --------------------------------------------------
-
   const handlePredict = async () => {
     if (!district || !city || !season || !farmSize || !cropWeek) {
       Alert.alert("Missing Data", "Please fill all fields.");
@@ -302,10 +296,6 @@ export default function PaddyAdvisoryScreen() {
     }
   };
 
-  // --------------------------------------------------
-  // LOAD DISTRICTS
-  // --------------------------------------------------
-
   useEffect(() => {
     let mounted = true;
 
@@ -322,18 +312,6 @@ export default function PaddyAdvisoryScreen() {
         if (!res.ok) {
           throw new Error(`District API returned HTTP ${res.status}`);
         }
-
-        /*
-         * Expected backend:
-         *
-         * {
-         *   "districts": ["Ampara", "Badulla", ...]
-         * }
-         *
-         * Also supports:
-         *
-         * ["Ampara", "Badulla", ...]
-         */
 
         let districtList = [];
 
@@ -383,10 +361,6 @@ export default function PaddyAdvisoryScreen() {
     };
   }, []);
 
-  // --------------------------------------------------
-  // LOAD CITIES WHEN DISTRICT CHANGES
-  // --------------------------------------------------
-
   useEffect(() => {
     if (!district) {
       setCities([]);
@@ -413,18 +387,6 @@ export default function PaddyAdvisoryScreen() {
         if (!res.ok) {
           throw new Error(`City API returned HTTP ${res.status}`);
         }
-
-        /*
-         * Expected backend:
-         *
-         * {
-         *   "cities": ["Ampara", "Kalmunai", ...]
-         * }
-         *
-         * Also supports:
-         *
-         * ["Ampara", "Kalmunai", ...]
-         */
 
         let cityList = [];
 

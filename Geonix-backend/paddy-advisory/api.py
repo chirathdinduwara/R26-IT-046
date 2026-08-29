@@ -47,11 +47,6 @@ app.add_middleware(
 
 BASE_DIR = Path(__file__).resolve().parent
 
-print("==============================================")
-print("PADDY ADVISORY API")
-print("BASE DIR:", BASE_DIR)
-print("==============================================")
-
 
 
 LOCATION_CSV = BASE_DIR / "data" / "locations.csv"
@@ -72,25 +67,6 @@ MODEL_PATH = (
     / "model"
     / "paddy_model_improved_6.pkl"
 )
-
-
-
-print("Location CSV:", LOCATION_CSV)
-print("Location CSV exists:", LOCATION_CSV.exists())
-
-print("Soil CSV:", SOIL_CSV)
-print("Soil CSV exists:", SOIL_CSV.exists())
-
-print("Final dataset:", FINAL_DATASET_CSV)
-print("Final dataset exists:", FINAL_DATASET_CSV.exists())
-
-print("Fertilizer rules:", FERTILIZER_RULES_CSV)
-print("Fertilizer rules exists:", FERTILIZER_RULES_CSV.exists())
-
-print("Model:", MODEL_PATH)
-print("Model exists:", MODEL_PATH.exists())
-
-print("==============================================")
 
 
 

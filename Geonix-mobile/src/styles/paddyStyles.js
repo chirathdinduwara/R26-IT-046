@@ -83,7 +83,7 @@ const styles = StyleSheet.create({
   topbar: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    justifyContent: "center",
     marginTop: 6,
     marginBottom: 18,
   },

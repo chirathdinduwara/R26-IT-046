@@ -34,12 +34,7 @@ export default function PaddyInputForm({
   return (
     <>
       <View style={styles.topbar}>
-        <TouchableOpacity onPress={() => console.log("Back pressed")}>
-          <ArrowLeft size={26} color="#111" />
-        </TouchableOpacity>
-
         <Text style={styles.pageTitle}>{text.newPrediction}</Text>
-        <View style={{ width: 26 }} />
       </View>
 
       <View style={styles.langTabs}>

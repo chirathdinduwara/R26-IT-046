@@ -27,8 +27,6 @@ export function splitAdvisory(text) {
     return [];
   }
 
-  // Gemini normally returns four numbered sections. Splitting at each
-  // numbered heading also works when it omits blank lines between sections.
   const numberedSections = clean
     .split(/(?=^\s*\d+\s*[.)]\s+)/gm)
     .map((section) => section.trim())
@@ -57,7 +55,6 @@ export function splitAdvisory(text) {
       .map((line) => line.trim())
       .filter(Boolean);
 
-    // The coloured icon replaces the visible 1, 2, 3 or 4 prefix.
     const title = (lines[0] || "Advice")
       .replace(/^\s*\d+\s*[.)\-:]\s*/, "")
       .trim();
