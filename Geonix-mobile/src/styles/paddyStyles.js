@@ -83,7 +83,7 @@ const styles = StyleSheet.create({
   topbar: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
+    justifyContent: "space-between",
     marginTop: 6,
     marginBottom: 18,
   },
@@ -177,6 +177,269 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 16,
     fontWeight: "800",
+  },
+
+  formLanguageRow: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    marginTop: 4,
+    marginBottom: 10,
+  },
+
+  formLanguagePill: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#ffffff",
+    borderWidth: 1,
+    borderColor: "#c9decf",
+    borderRadius: 24,
+    paddingVertical: 4,
+    paddingHorizontal: 7,
+    shadowColor: "#173d28",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+
+  formLanguageOption: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+
+  formLanguageOptionActive: {
+    backgroundColor: "#e7f5e9",
+  },
+
+  formLanguageText: {
+    color: "#47534b",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+
+  formLanguageTextActive: {
+    color: "#23753a",
+    fontWeight: "900",
+  },
+
+  formLanguageDivider: {
+    width: 1,
+    height: 20,
+    backgroundColor: "#d7dfd9",
+  },
+
+  formHeroBanner: {
+    minHeight: 142,
+    backgroundColor: "#216f3d",
+    borderRadius: 24,
+    padding: 18,
+    flexDirection: "row",
+    alignItems: "center",
+    overflow: "hidden",
+    marginBottom: -20,
+    marginHorizontal: 8,
+    zIndex: 2,
+    shadowColor: "#123c24",
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.22,
+    shadowRadius: 9,
+    elevation: 6,
+  },
+
+  formHeroImageStyle: {
+    borderRadius: 24,
+  },
+
+  formHeroOverlay: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    backgroundColor: "rgba(13, 70, 36, 0.58)",
+    borderRadius: 24,
+  },
+
+  formHeroImageCircle: {
+    width: 86,
+    height: 86,
+    borderRadius: 43,
+    backgroundColor: "#f4faef",
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+    marginRight: 15,
+    zIndex: 1,
+  },
+
+  formHeroImage: {
+    width: 92,
+    height: 82,
+    transform: [{ translateY: 7 }],
+  },
+
+  formHeroContent: {
+    flex: 1,
+    zIndex: 1,
+  },
+
+  formHeroTitle: {
+    color: "#ffffff",
+    fontSize: 25,
+    lineHeight: 30,
+    fontWeight: "900",
+    marginBottom: 6,
+  },
+
+  formHeroSubtitle: {
+    color: "#e7f5e9",
+    fontSize: 13,
+    lineHeight: 19,
+  },
+
+  enhancedFormCard: {
+    backgroundColor: "#ffffff",
+    borderRadius: 24,
+    paddingHorizontal: 18,
+    paddingTop: 42,
+    paddingBottom: 18,
+    marginBottom: 15,
+    borderWidth: 1,
+    borderColor: "#e0e9e2",
+    shadowColor: "#183c28",
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.11,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+
+  formSectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 11,
+  },
+
+  formSectionIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: "#eaf6e8",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 10,
+  },
+
+  formSectionTitle: {
+    color: "#255f36",
+    fontSize: 17,
+    fontWeight: "900",
+  },
+
+  formSectionLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: "#d2e5d5",
+    marginLeft: 12,
+  },
+
+  formSectionSpacing: {
+    height: 17,
+  },
+
+  enhancedLabel: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: "#18231c",
+    marginBottom: 7,
+    marginTop: 7,
+  },
+
+  enhancedField: {
+    minHeight: 56,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#ffffff",
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#d2dbd5",
+    overflow: "hidden",
+    marginBottom: 7,
+  },
+
+  enhancedFieldIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "#eef8eb",
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: 9,
+  },
+
+  enhancedPicker: {
+    flex: 1,
+    minHeight: 56,
+    justifyContent: "center",
+  },
+
+  enhancedInput: {
+    flex: 1,
+    height: 56,
+    paddingHorizontal: 13,
+    fontSize: 16,
+    color: "#1f2922",
+  },
+
+  inputUnitBox: {
+    minWidth: 65,
+    height: 56,
+    backgroundColor: "#eef6e7",
+    borderLeftWidth: 1,
+    borderLeftColor: "#d5e2d3",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 10,
+  },
+
+  inputUnitText: {
+    color: "#2b713c",
+    fontSize: 14,
+    fontWeight: "800",
+  },
+
+  enhancedPredictButton: {
+    height: 60,
+    backgroundColor: "#2d8a3d",
+    borderRadius: 17,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 22,
+    paddingHorizontal: 10,
+    shadowColor: "#176229",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.22,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+
+  enhancedPredictButtonText: {
+    flex: 1,
+    color: "#ffffff",
+    fontSize: 17,
+    fontWeight: "900",
+    textAlign: "center",
+    marginLeft: 28,
+  },
+
+  predictArrowCircle: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: "#ffffff",
+    alignItems: "center",
+    justifyContent: "center",
   },
 
   hero: {
