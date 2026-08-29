@@ -7,13 +7,9 @@ import pandas as pd
 import joblib
 import csv
 
-from weather_api import get_forecast_weather
-from crop_calendar import get_crop_calendar_rules
-from ai_advisor import generate_ai_advice
-from climate_lookup import get_seasonal_climate_estimate, get_rainfall_deviation
 from weather_api import (
     get_forecast_weather,
-    get_recent_actual_weather
+    get_recent_actual_weather,
 )
 
 from crop_calendar import (
@@ -24,7 +20,10 @@ from ai_advisor import (
     generate_ai_advice,
 )
 
-model = joblib.load("model/paddy_model_improved_6.pkl")
+from climate_lookup import (
+    get_seasonal_climate_estimate,
+    get_rainfall_deviation,
+)
 
 
 
@@ -1138,32 +1137,14 @@ def predict(data: FarmerInput):
             "status":
                 "success",
 
-    
-    weather_forecast = get_forecast_weather(loc_info["lat"], loc_info["lon"])
-    daily_forecast = weather_forecast.pop("daily_forecast")
-
-    current_year = datetime.now().year
-    recent_weather = get_recent_actual_weather(
-    loc_info["lat"],
-    loc_info["lon"],
-    days=30
-)
-
-    seasonal_climate = get_seasonal_climate_estimate(
-    district=district,
-    season=season,
-    recent_weather=recent_weather,
-    forecast_weather=weather_forecast
-)
-
+            "District":
+                district,
 
             "City":
                 city,
 
-    water_condition = detect_water_condition(
-        total_rainfall=weather_forecast["total_rainfall"],
-        zone=soil["zone"]
-    ) 
+            "Season":
+                season,
 
             "Crop_Week":
                 data.crop_week,
@@ -1177,9 +1158,8 @@ def predict(data: FarmerInput):
             "Expected_Production_tons":
                 round(production, 2),
 
-        **seasonal_climate,   
-        **soil,
-        **cultivation,
+            "Risk_Level":
+                risk,
 
             "Crop_Stage":
                 crop_stage,
@@ -1211,9 +1191,11 @@ def predict(data: FarmerInput):
                     "",
                 ),
 
-    df["rainfall_deviation"] = get_rainfall_deviation(
-        district, season, seasonal_climate["total_rainfall"]
-    )
+            "AI_Insight_English":
+                advice.get(
+                    "insight_english",
+                    "",
+                ),
 
             "AI_Insight_Sinhala":
                 advice.get(
@@ -1239,52 +1221,38 @@ def predict(data: FarmerInput):
                     "",
                 ),
 
-    risk = calculate_risk(
-        weather_forecast["total_rainfall"],
-        weather_forecast["avg_temp"]
-    )
+            "Seven_Day_Rain_Forecast":
+                daily_forecast,
 
-    crop_stage, rules = get_crop_calendar_rules(
-        crop_week=data.crop_week,
-        season=season,
-        pH=soil["pH"],
-        total_rainfall=weather_forecast["total_rainfall"]
-    )
+            "Model_Input_Seasonal_Rainfall_mm":
+                round(
+                    seasonal_climate[
+                        "total_rainfall"
+                    ],
+                    1,
+                ),
+        }
 
-    ai_context = {
-        "district": district,
-        "location": city,
-        "season": season,
-        "crop_week": data.crop_week,
-        "crop_stage": crop_stage,
-        "predicted_yield": round(predicted, 2),
-        "expected_production": round(production, 2),
-        "risk_level": risk,
-        "soil_pH": soil["pH"],
-        "soil_type": soil["soil_type"],
-        "total_rainfall": weather_forecast["total_rainfall"],
-        "avg_temp": weather_forecast["avg_temp"],
-        "rules": rules,
-        "fertilizer_week": fertilizer["Week"],
-        "urea_kg_ha": fertilizer["Urea_kg_ha"],
-        "tsp_kg_ha": fertilizer["TSP_kg_ha"],
-        "mop_kg_ha": fertilizer["MOP_kg_ha"],
-        "zinc_kg_ha": fertilizer["Zinc_kg_ha"],
-    }
+    except HTTPException:
 
         raise
 
-    return {
-        "District": district,
-        "City": city,
-        "Predicted_Yield": round(predicted, 2),
-        "Expected_Production_tons": round(production, 2),
-        "Risk_Level": risk,
-        "Crop_Stage": crop_stage,
-        "Recommended_Fertilizer": fertilizer,
-        "Water_Condition": water_condition,
-        "Advisory_English": advice["english"],
-        "Advisory_Sinhala": advice["sinhala"],
-        "Seven_Day_Rain_Forecast": daily_forecast,
-        "Model_Input_Seasonal_Rainfall_mm": round(seasonal_climate["total_rainfall"], 1),
-    }
+    except Exception as e:
+
+        print(
+            "================================"
+        )
+
+        print(
+            "PREDICTION ERROR:",
+            repr(e),
+        )
+
+        print(
+            "================================"
+        )
+
+        raise HTTPException(
+            status_code=500,
+            detail=f"Prediction failed: {str(e)}",
+        )

@@ -9,8 +9,6 @@ geonix-backend/dengue-warning/api/__pycache__/
 */android/
 */.expo/
 # Environment variables
-.env
-.env.local
 
 # Build outputs
 dist/
@@ -26,5 +24,6 @@ yarn-debug.log*
 Thumbs.db
 
 # IDE
-.vscode/
 .idea/
+config.bat
+node_modules
