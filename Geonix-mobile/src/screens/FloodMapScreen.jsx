@@ -12,6 +12,7 @@ import MapView, { Polygon, Marker } from "react-native-maps";
 import { useEffect, useState, useRef } from "react";
 import * as Location from "expo-location";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
+import { FLOOD_API_URL } from "../config/api";
 import DIVISION_COORDS from "../../assets/col_divs/devCords";
 
 const DIVISION_COORDS_API = DIVISION_COORDS;
@@ -32,8 +33,6 @@ export default function FloodMapScreen() {
   const mapRef = useRef(null);
   const fade = useRef(new Animated.Value(0)).current;
   const toastMsg = useRef("");
-
-  const API_URL = "http://192.168.199.22:8000";
 
   // ── Toast ──────────────────────────────────────────────────────────────────
   const toast = (msg) => {
@@ -70,7 +69,7 @@ export default function FloodMapScreen() {
 
   // ── Fetch live river level ────────────────────────────────────────────────
   async function fetchRiverLevel() {
-    const res = await fetch(`${API_URL}/riverLevel`);
+    const res = await fetch(`${FLOOD_API_URL}/riverLevel`);
     const data = await res.json();
     return data.river_level;
   }
@@ -132,7 +131,7 @@ export default function FloodMapScreen() {
 
         const payload = await buildWeatherPayload(riverLevelM);
 
-        const res = await fetch(`${API_URL}/predict/full`, {
+        const res = await fetch(`${FLOOD_API_URL}/predict/full`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
@@ -212,7 +211,7 @@ export default function FloodMapScreen() {
         river_water_level: riverLevelM,
       };
 
-      const res = await fetch(`${API_URL}/predict/subdist`, {
+      const res = await fetch(`${FLOOD_API_URL}/predict/subdist`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),

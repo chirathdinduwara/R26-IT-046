@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { API_BASE_URL } from "../../../config/api";
+import { DENGUE_API_URL } from "../../../config/api";
 
 const REQUEST_TIMEOUT_MS = 12000;
 const SETTINGS_KEY = "@flood_app_settings";
@@ -33,19 +33,7 @@ function normalizeBaseUrl(value) {
 }
 
 async function resolveApiBaseUrl() {
-  try {
-    const raw = await AsyncStorage.getItem(SETTINGS_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      const configured = normalizeBaseUrl(parsed?.apiUrl);
-      if (configured) {
-        return configured;
-      }
-    }
-  } catch {
-    // Fall back to inferred API base URL.
-  }
-  return normalizeBaseUrl(API_BASE_URL);
+  return normalizeBaseUrl(DENGUE_API_URL);
 }
 
 async function request(path) {

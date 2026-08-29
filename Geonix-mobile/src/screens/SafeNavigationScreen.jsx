@@ -9,11 +9,22 @@ import {
   View,
 } from "react-native";
 import { useEffect, useMemo, useState } from "react";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Location from "expo-location";
 import MapView, { Circle, Marker, Polyline } from "react-native-maps";
+import { SAFE_ROUTE_API_URL } from "../config/api";
 
-const STORAGE_KEY = "@flood_app_settings";
+const DEFAULT_SAFE_ROUTE_API_URL = SAFE_ROUTE_API_URL;
+
+function normalizeSafeRouteApiUrl(rawUrl) {
+  const value = String(rawUrl || "").trim();
+  if (!value) return DEFAULT_SAFE_ROUTE_API_URL;
+  try {
+    const url = new URL(value);
+    return url.toString().replace(/\/$/, "");
+  } catch {
+    return value.replace(/\/$/, "");
+  }
+}
 
 const C = {
   bg: "#0D1117",
@@ -21,9 +32,12 @@ const C = {
   border: "#30363D",
   text: "#E6EDF3",
   sub: "#8B949E",
-  amber: "#F0A500",
-  green: "#3FB950",
+  blue: "#58A6FF",
+  blueDim: "#1f385c",
   red: "#F85149",
+  redDim: "#5c1d1a",
+  green: "#56ef5c",
+  greenDim: "#1a5c1f",
 };
 
 async function parseJsonResponse(res) {
@@ -31,12 +45,14 @@ async function parseJsonResponse(res) {
   try {
     return raw ? JSON.parse(raw) : {};
   } catch {
-    throw new Error(raw?.slice(0, 160) || "Server returned a non-JSON response.");
+    throw new Error(
+      raw?.slice(0, 160) || "Server returned a non-JSON response.",
+    );
   }
 }
 
 export default function SafeNavigationScreen() {
-  const [apiUrl, setApiUrl] = useState("http://192.168.199.22:8000");
+  const [apiUrl, setApiUrl] = useState(DEFAULT_SAFE_ROUTE_API_URL);
   const [currentLocation, setCurrentLocation] = useState(null);
   const [locationLoading, setLocationLoading] = useState(false);
 
@@ -51,13 +67,6 @@ export default function SafeNavigationScreen() {
 
   useEffect(() => {
     (async () => {
-      try {
-        const raw = await AsyncStorage.getItem(STORAGE_KEY);
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (parsed?.apiUrl) setApiUrl(parsed.apiUrl);
-        }
-      } catch {}
       await detectCurrentLocation(false);
     })();
   }, []);
@@ -146,7 +155,10 @@ export default function SafeNavigationScreen() {
       if (!ok) return;
     }
     if (!destination) {
-      Alert.alert("Destination Required", "Type destination and select one suggestion.");
+      Alert.alert(
+        "Destination Required",
+        "Type destination and select one suggestion.",
+      );
       return;
     }
 
@@ -203,8 +215,14 @@ export default function SafeNavigationScreen() {
       return {
         latitude: centerLat,
         longitude: centerLon,
-        latitudeDelta: Math.max(0.1, Math.abs(currentLocation.lat - destination.lat) * 2),
-        longitudeDelta: Math.max(0.1, Math.abs(currentLocation.lon - destination.lon) * 2),
+        latitudeDelta: Math.max(
+          0.1,
+          Math.abs(currentLocation.lat - destination.lat) * 2,
+        ),
+        longitudeDelta: Math.max(
+          0.1,
+          Math.abs(currentLocation.lon - destination.lon) * 2,
+        ),
       };
     }
 
@@ -230,13 +248,16 @@ export default function SafeNavigationScreen() {
       <ScrollView contentContainerStyle={styles.scroll}>
         <Text style={styles.title}>Safe Navigation</Text>
         <Text style={styles.subtitle}>
-          Current location is automatic. Start typing destination to get suggestions.
+          Current location is automatic. Start typing destination to get
+          suggestions.
         </Text>
 
         <View style={styles.card}>
           <Text style={styles.section}>Current Location</Text>
           <Text style={styles.meta}>
-            {currentLocation ? `${currentLocation.lat}, ${currentLocation.lon}` : "Detecting location..."}
+            {currentLocation
+              ? `${currentLocation.lat}, ${currentLocation.lon}`
+              : "Detecting location..."}
           </Text>
           <TouchableOpacity
             style={styles.secondaryBtn}
@@ -246,7 +267,9 @@ export default function SafeNavigationScreen() {
             {locationLoading ? (
               <ActivityIndicator color={C.sub} />
             ) : (
-              <Text style={styles.secondaryBtnText}>Refresh Current Location</Text>
+              <Text style={styles.secondaryBtnText}>
+                Refresh Current Location
+              </Text>
             )}
           </TouchableOpacity>
 
@@ -263,34 +286,52 @@ export default function SafeNavigationScreen() {
             autoCapitalize="words"
           />
           {destinationLoading && <Text style={styles.meta}>Searching...</Text>}
-          {!!destination && <Text style={styles.meta}>Selected: {destination.label}</Text>}
+          {!!destination && (
+            <Text style={styles.meta}>Selected: {destination.label}</Text>
+          )}
 
           {destinationResults.map((item) => (
-            <TouchableOpacity key={item.id} style={styles.resultItem} onPress={() => selectDestination(item)}>
+            <TouchableOpacity
+              key={item.id}
+              style={styles.resultItem}
+              onPress={() => selectDestination(item)}
+            >
               <Text numberOfLines={2} style={styles.resultText}>
                 {item.label}
               </Text>
             </TouchableOpacity>
           ))}
 
-          <TouchableOpacity style={styles.primaryBtn} onPress={fetchRoutes} disabled={loading}>
+          <TouchableOpacity
+            style={styles.primaryBtn}
+            onPress={fetchRoutes}
+            disabled={loading}
+          >
             {loading ? (
               <ActivityIndicator color={C.bg} />
             ) : (
-              <Text style={styles.primaryBtnText}>Find Dangerous + Safe Routes</Text>
+              <Text style={styles.primaryBtnText}>
+                Find Dangerous + Safe Routes
+              </Text>
             )}
           </TouchableOpacity>
         </View>
 
         <View style={styles.mapWrap}>
-          <MapView style={styles.map} initialRegion={mapRegion} region={mapRegion}>
+          <MapView
+            style={styles.map}
+            initialRegion={mapRegion}
+            region={mapRegion}
+          >
             {safeRoute?.coordinates?.length > 1 && (
               <Polyline
                 coordinates={safeRoute.coordinates.map((p) => ({
                   latitude: p.lat,
                   longitude: p.lon,
                 }))}
-                strokeColor={selectedRoute?.id === safeRoute.id ? C.green : "#2B7A3F"}
+                strokeColor={
+                  selectedRoute?.id === safeRoute.id ? C.green : "#2B7A3F"
+                }
                 strokeWidth={selectedRoute?.id === safeRoute.id ? 6 : 4}
               />
             )}
@@ -301,7 +342,9 @@ export default function SafeNavigationScreen() {
                   latitude: p.lat,
                   longitude: p.lon,
                 }))}
-                strokeColor={selectedRoute?.id === dangerousRoute.id ? C.red : "#A33733"}
+                strokeColor={
+                  selectedRoute?.id === dangerousRoute.id ? C.red : "#A33733"
+                }
                 strokeWidth={selectedRoute?.id === dangerousRoute.id ? 6 : 4}
               />
             )}
@@ -352,7 +395,9 @@ export default function SafeNavigationScreen() {
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.dangerBtn}
-              onPress={() => dangerousRoute && setSelectedRouteId(dangerousRoute.id)}
+              onPress={() =>
+                dangerousRoute && setSelectedRouteId(dangerousRoute.id)
+              }
             >
               <Text style={styles.dangerBtnText}>Show Dangerous Route</Text>
             </TouchableOpacity>
@@ -374,10 +419,12 @@ export default function SafeNavigationScreen() {
                       : "ALTERNATIVE"}
                 </Text>
                 <Text style={styles.routeMeta}>
-                  {route.distance_km} km | {route.duration_in_traffic_min} min (traffic)
+                  {route.distance_km} km | {route.duration_in_traffic_min} min
+                  (traffic)
                 </Text>
                 <Text style={styles.routeMeta}>
-                  risk {route.risk_score} | traffic roads {route.traffic_road_count} | flooded roads{" "}
+                  risk {route.risk_score} | traffic roads{" "}
+                  {route.traffic_road_count} | flooded roads{" "}
                   {route.flooded_road_count}
                 </Text>
               </TouchableOpacity>

@@ -6,8 +6,7 @@ from typing import Any
 import httpx
 import joblib
 import numpy as np
-from fastapi import APIRouter, FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 
@@ -128,6 +127,16 @@ def _resolve_api_key(value: str | None, env_names: tuple[str, ...], label: str) 
     )
 
 
+def _resolve_optional_api_key(value: str | None, env_names: tuple[str, ...]) -> str | None:
+    if value:
+        return value
+    for name in env_names:
+        env_val = os.getenv(name)
+        if env_val:
+            return env_val
+    return None
+
+
 def _predict_risk_probability(features: list[list[float]]) -> float:
     if hasattr(model, "predict_proba"):
         probs = model.predict_proba(features)
@@ -185,6 +194,10 @@ def _weather_risk_index(rainfall_mm_h: float, humidity: float) -> float:
     rain_factor = min(1.0, max(0.0, rainfall_mm_h / 18.0))
     humidity_factor = min(1.0, max(0.0, (humidity - 60.0) / 40.0))
     return 0.75 * rain_factor + 0.25 * humidity_factor
+
+
+def _default_weather() -> dict[str, float]:
+    return {"temperature": 28.0, "humidity": 75.0, "rainfall": 0.0}
 
 
 def _extract_flood_shapes(geojson: dict[str, Any]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
@@ -455,6 +468,49 @@ async def _search_destinations_google(
     return suggestions
 
 
+async def _search_destinations_nominatim(
+    client: httpx.AsyncClient,
+    query: str,
+    limit: int,
+) -> list[dict[str, Any]]:
+    resp = await client.get(
+        "https://nominatim.openstreetmap.org/search",
+        params={
+            "q": query,
+            "format": "jsonv2",
+            "countrycodes": "lk",
+            "limit": limit,
+            "addressdetails": 0,
+        },
+        headers={"User-Agent": "GeonixSafeRoute/2.0 (destination-search)"},
+    )
+    resp.raise_for_status()
+    data = resp.json()
+    if not isinstance(data, list):
+        return []
+
+    suggestions: list[dict[str, Any]] = []
+    for idx, item in enumerate(data[:limit]):
+        lat_raw = item.get("lat")
+        lon_raw = item.get("lon")
+        if lat_raw is None or lon_raw is None:
+            continue
+        try:
+            lat = float(lat_raw)
+            lon = float(lon_raw)
+        except (TypeError, ValueError):
+            continue
+        suggestions.append(
+            {
+                "id": f"osm_{item.get('place_id', idx)}",
+                "label": item.get("display_name", "Unknown destination"),
+                "lat": lat,
+                "lon": lon,
+            }
+        )
+    return suggestions
+
+
 def _evaluate_route(
     route: dict[str, Any],
     weather: dict[str, float],
@@ -566,10 +622,9 @@ def _evaluate_route(
 
 
 async def _build_route_response(req: SafeRouteRequest) -> dict[str, Any]:
-    openweather_key = _resolve_api_key(
+    openweather_key = _resolve_optional_api_key(
         req.openweather_api_key,
         ("OPENWEATHER_API_KEY", "OPENWEATHER_KEY"),
-        "OpenWeather API key",
     )
     google_key = _resolve_api_key(
         req.google_api_key,
@@ -581,12 +636,27 @@ async def _build_route_response(req: SafeRouteRequest) -> dict[str, Any]:
     midpoint_lat = (req.origin.lat + req.destination.lat) / 2.0
     midpoint_lon = (req.origin.lon + req.destination.lon) / 2.0
 
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        weather_task = _fetch_weather_current(client, midpoint_lat, midpoint_lon, openweather_key)
-        google_task = _fetch_google_routes(client, req.origin, req.destination, req, google_key)
-        flood_task = _fetch_flood_geojson(client, flood_api_url, openweather_key, req.threshold)
+    weather = _default_weather()
+    flood_geojson: dict[str, Any] = {"type": "FeatureCollection", "features": []}
 
-        weather, google_routes, flood_geojson = await asyncio.gather(weather_task, google_task, flood_task)
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        try:
+            google_routes = await _fetch_google_routes(client, req.origin, req.destination, req, google_key)
+        except HTTPException:
+            raise
+        except (httpx.HTTPError, ValueError) as exc:
+            raise HTTPException(status_code=502, detail=f"Google Directions request failed: {exc}") from exc
+
+        if openweather_key:
+            try:
+                weather = await _fetch_weather_current(client, midpoint_lat, midpoint_lon, openweather_key)
+            except (httpx.HTTPError, ValueError):
+                weather = _default_weather()
+
+            try:
+                flood_geojson = await _fetch_flood_geojson(client, flood_api_url, openweather_key, req.threshold)
+            except (httpx.HTTPError, ValueError):
+                flood_geojson = {"type": "FeatureCollection", "features": []}
 
     flooded_areas, flood_shapes = _extract_flood_shapes(flood_geojson)
     if req.demo_mode and req.demo_config and req.demo_config.flood_points:
@@ -690,14 +760,28 @@ async def search_destination(q: str, limit: int = 5) -> dict[str, Any]:
         return {"count": 0, "results": []}
 
     limited = max(1, min(limit, 10))
-    google_key = _resolve_api_key(
-        None,
-        ("GOOGLE_MAPS_API_KEY", "GOOGLE_API_KEY"),
-        "Google Maps API key",
-    )
+    google_key = os.getenv("GOOGLE_MAPS_API_KEY") or os.getenv("GOOGLE_API_KEY")
+    google_error_detail: str | None = None
 
     async with httpx.AsyncClient(timeout=20.0) as client:
-        results = await _search_destinations_google(client, query, google_key, limited)
+        if google_key:
+            try:
+                results = await _search_destinations_google(client, query, google_key, limited)
+                return {"count": len(results), "results": results}
+            except HTTPException as exc:
+                google_error_detail = str(exc.detail)
+            except (httpx.HTTPError, ValueError) as exc:
+                google_error_detail = str(exc)
+
+        try:
+            results = await _search_destinations_nominatim(client, query, limited)
+        except (httpx.HTTPError, ValueError) as exc:
+            if google_error_detail:
+                detail = f"Destination search failed. Google: {google_error_detail}. Fallback: {exc}"
+            else:
+                detail = f"Destination search failed: {exc}"
+            raise HTTPException(status_code=502, detail=detail) from exc
+
     return {"count": len(results), "results": results}
 
 
@@ -713,38 +797,4 @@ async def go_safe(req: SafeRouteRequest) -> dict[str, Any]:
     }
 
 
-app = FastAPI(title="Geonix Safe Route API", version="2.0.0")
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-app.include_router(router)
 
-
-# Compatibility aliases for standalone safe_route service usage.
-@app.post("/predict")
-def predict_alias(data: RoadRiskInput) -> dict[str, int]:
-    return predict(data)
-
-
-@app.post("/flooded-areas")
-async def flooded_areas_alias(req: FloodAreasRequest) -> dict[str, Any]:
-    return await flooded_areas(req)
-
-
-@app.post("/routes")
-async def routes_alias(req: SafeRouteRequest) -> dict[str, Any]:
-    return await routes(req)
-
-
-@app.get("/search-destination")
-async def search_destination_alias(q: str, limit: int = 5) -> dict[str, Any]:
-    return await search_destination(q, limit)
-
-
-@app.post("/go-safe")
-async def go_safe_alias(req: SafeRouteRequest) -> dict[str, Any]:
-    return await go_safe(req)

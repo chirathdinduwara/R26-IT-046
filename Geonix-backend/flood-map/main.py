@@ -1,5 +1,4 @@
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi import APIRouter
 from pydantic import BaseModel
 import geopandas as gpd, pandas as pd, numpy as np
 import joblib, json, httpx
@@ -98,9 +97,7 @@ def cells_to_polygons(flood_cells, min_area_m2=40_000):
 
 
 # ── App ───────────────────────────────────────────────────────────────────────
-app = FastAPI(title="Colombo Flood Predictor v4")
-app.add_middleware(CORSMiddleware, allow_origins=["*"],
-                   allow_methods=["*"], allow_headers=["*"])
+router = APIRouter(tags=["flood-map"])
 
 
 class SubdistInput(BaseModel):
@@ -147,7 +144,7 @@ async def get_latest_river_level() -> float:
 
 
 # ── POST /predict/subdist ─────────────────────────────────────────────────────
-@app.post("/predict/subdist")
+@router.post("/predict/subdist")
 async def predict_subdist(req: SubdistInput):
     thresh = req.threshold or THRESH
 
@@ -198,7 +195,7 @@ async def predict_subdist(req: SubdistInput):
 
 
 # ── POST /predict/full ────────────────────────────────────────────────────────
-@app.post("/predict/full")
+@router.post("/predict/full")
 async def predict_full(req: FullMapInput):
     thresh = req.threshold or THRESH
 
@@ -265,21 +262,21 @@ async def predict_full(req: FullMapInput):
 
 
 # ── Utility endpoints ─────────────────────────────────────────────────────────
-@app.get("/divisions")
+@router.get("/divisions")
 async def list_divisions():
     return {"divisions": DIVS}
 
 
-@app.get("/health")
+@router.get("/health")
 async def health():
     return {"status": "ok", "grid_cells": len(grid)}
 
-@app.get("/riverLevel")
+@router.get("/riverLevel")
 async def get_river_level():
     return {"river_level": await get_latest_river_level()}
 
 
-@app.get("/thresholds")
+@router.get("/thresholds")
 async def get_thresholds():
     """Returns the physics gate limits — useful for frontend tooltips."""
     return {
@@ -297,7 +294,7 @@ async def get_thresholds():
     }
 
 
-@app.get("/verify")
+@router.get("/verify")
 async def verify():
     """Sanity check: flood area must grow monotonically with rainfall + river level."""
     scenarios = [
