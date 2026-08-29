@@ -26,7 +26,7 @@ export default function AnimatedSplash({ onAnimationFinish }) {
       Animated.delay(400),
       Animated.timing(containerOpacity, {
         toValue: 0,
-        duration: 350,
+        duration: 600,
         easing: Easing.in(Easing.ease),
         useNativeDriver: true,
       }),
