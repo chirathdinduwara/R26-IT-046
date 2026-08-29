@@ -1,0 +1,32 @@
+{
+    "features": [
+        "Cases_lag_1",
+        "Cases_lag_2",
+        "Cases_lag_3",
+        "Cases_lag_4",
+        "Cases_lag_6",
+        "Cases_avg_3week",
+        "Cases_avg_6week",
+        "Cases_growth_rate",
+        "Cases_acceleration",
+        "Temperature",
+        "Humidity",
+        "Rainfall",
+        "Rainfall_2W",
+        "Rainfall_4W",
+        "Temperature_2W",
+        "Humidity_2W",
+        "month",
+        "week_of_year",
+        "month_sin",
+        "month_cos",
+        "week_sin",
+        "week_cos"
+    ],
+    "feature_count": 22,
+    "target_classes": [
+        "Low",
+        "Medium",
+        "High"
+    ]
+}

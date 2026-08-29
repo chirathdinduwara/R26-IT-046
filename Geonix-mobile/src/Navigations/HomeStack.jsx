@@ -5,7 +5,8 @@ import FloodMapScreen from "../screens/FloodMapScreen";
 import PaddyAdvisoryScreen from "../screens/PaddyAdvisoryScreen";
 import FloodMapScreenDivision from "../screens/FloodMapScreenDivision";
 import DengueRiskScreen from "../screens/DengueRiskScreen";
-import DengueChatbotScreen from "../screens/DengueChatbotScreen";
+import DengueRiskDemoScreen from "../screens/DengueRiskDemoScreen";
+import DengueChatbotScreen from "../screens/DengueRiskChatScreen";
 import SafeNavigationScreen from "../screens/SafeNavigationScreen";
 import SafeNavigationDemoScreen from "../screens/SafeNavigationDemoScreen";
 
@@ -45,7 +46,7 @@ export default function HomeStack() {
   return (
     <Stack.Navigator screenOptions={baseHeader}>
       <Stack.Screen
-        name="Home"
+        name="HomeScreen"
         component={HomeScreen}
         options={{ headerShown: false }}
       />
@@ -107,6 +108,20 @@ export default function HomeStack() {
           },
           headerRight: () => (
             <DistrictBadge label="RISK ALERTS" color={HEADER.teal} />
+          ),
+        }}
+      />
+
+      <Stack.Screen
+        name="DengueRiskDemo"
+        component={DengueRiskDemoScreen}
+        options={{
+          title: "Dengue Risk Simulator",
+          headerTitleStyle: {
+            ...baseHeader.headerTitleStyle,
+          },
+          headerRight: () => (
+            <DistrictBadge label="DEMO MODE" color={HEADER.amber} />
           ),
         }}
       />

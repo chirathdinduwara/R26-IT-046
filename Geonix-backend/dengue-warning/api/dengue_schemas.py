@@ -34,6 +34,9 @@ class AlertPolicy(BaseModel):
 class WeatherInfo(BaseModel):
     temperature_c: float
     humidity_pct: float
+    current_rain_mm_h: float
+    today_rain_mm: float
+    rainfall_7day_avg: float
     rainfall_mm: float
     rainfall_7day_sum: float
     rainy_days_7d: float
@@ -60,3 +63,38 @@ class ChatRequest(BaseModel):
 
 class ChatResponse(BaseModel):
     response: str
+
+class RiskResponse(BaseModel):
+    area_id: str
+    area_name: str
+    risk_level: str
+    risk_score: float
+    probabilities: dict[str, float]
+
+class HistoryResponse(BaseModel):
+    area_id: str
+    area_name: str
+    history: list[RiskPoint]
+
+class ForecastResponse(BaseModel):
+    area_id: str
+    area_name: str
+    next_week: RiskPoint
+    week_after_next: RiskPoint
+    trend: str
+    risk_escalation: bool
+
+class HotspotItem(BaseModel):
+    area_id: str
+    area_name: str
+    risk_level: str
+    high_probability: float
+
+class HotspotsResponse(BaseModel):
+    hotspots: list[HotspotItem]
+
+class AIExplanationResponse(BaseModel):
+    area_id: str
+    area_name: str
+    current_risk_level: str
+    explanation: str

@@ -34,6 +34,8 @@ const DEFAULT_SETTINGS = {
   showFloodZoneLabels: true,
   polygonOpacity: "40", // percent string
   refreshIntervalMin: "15",
+  safeRouteSpeak: true,
+  safeRouteRerunMin: "10",
 };
 
 // ── Theme ─────────────────────────────────────────────────────────────────────
@@ -526,6 +528,40 @@ export default function SettingsScreen() {
               placeholder="40"
               keyboardType="number-pad"
               monospace
+            />
+          </SettingRow>
+        </View>
+
+        {/* ════════ SAFE ROUTE NAVIGATION ════════ */}
+        <SectionHeader
+          icon="navigation-variant-outline"
+          label="SAFE ROUTE NAVIGATION"
+          accent={C.safe}
+        />
+
+        <View style={styles.card}>
+          <SettingRow
+            label="RouteMaster AI Voice Alerts"
+            sub="Speak safety recommendations while navigating"
+          >
+            <StyledSwitch
+              value={settings.safeRouteSpeak}
+              onValueChange={(v) => patch("safeRouteSpeak", v)}
+            />
+          </SettingRow>
+          <SettingRow
+            label="Model Re-run Frequency"
+            sub="Interval (min) to re-evaluate road risk while navigating"
+            last
+          >
+            <SegmentControl
+              value={settings.safeRouteRerunMin}
+              onChange={(v) => patch("safeRouteRerunMin", v)}
+              options={[
+                { label: "5m", value: "5" },
+                { label: "10m", value: "10" },
+                { label: "15m", value: "15" },
+              ]}
             />
           </SettingRow>
         </View>
