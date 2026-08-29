@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -7,6 +8,7 @@ import {
   StatusBar,
   Dimensions,
   Platform,
+  Animated,
 } from "react-native";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
@@ -167,6 +169,26 @@ function NavCard({ item, onPress, index }) {
 // ── Screen ────────────────────────────────────────────────────────────────────
 export default function HomeScreen() {
   const navigation = useNavigation();
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 0.25,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    pulse.start();
+    return () => pulse.stop();
+  }, [pulseAnim]);
 
   return (
     <View style={styles.screen}>
@@ -196,7 +218,7 @@ export default function HomeScreen() {
 
           {/* Live badge */}
           <View style={styles.liveBadge}>
-            <View style={styles.liveDot} />
+            <Animated.View style={[styles.liveDot, { opacity: pulseAnim }]} />
             <Text style={styles.liveBadgeText}>LIVE</Text>
           </View>
         </View>
