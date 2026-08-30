@@ -460,27 +460,16 @@ export default function SafeNavigationDemoScreen() {
           <Text style={styles.navOverlayTitle}>🛡️ Navigation Assistant (Demo)</Text>
           
           <Text style={[styles.navOverlaySafety, { color: selectedRoute.type === "safe" ? C.green : C.red }]}>
-<<<<<<< HEAD
-            {selectedRoute.type === "safe" ? "🟢 Safe Route" : "🔴 Caution: Dangerous Route"} ({selectedRoute.risk_score != null ? Math.round((1 - selectedRoute.risk_score) * 100) : 100}% Safe)
-=======
             {selectedRoute.type === "safe" ? "🟢 Safe Route" : "🔴 Caution: Dangerous Route"} ({Math.round((1 - selectedRoute.risk_score) * 100)}% Safe)
->>>>>>> 18dab5d510c938596f4c4c60ac85f0fb61e6b97e
           </Text>
 
           {/* Mini Weather metrics inside overlay */}
           {result?.weather && (
             <View style={styles.navWeatherRow}>
-<<<<<<< HEAD
-              <Text style={styles.navWeatherText}>🌡️ {safeToFixed(result.weather.temperature, 1, "--")}°C</Text>
-              <Text style={styles.navWeatherText}>💧 {result.weather.humidity ?? "--"}%</Text>
-              <Text style={styles.navWeatherText}>🌧️ {safeToFixed(result.weather.rainfall, 1, "0.0")}mm</Text>
-              <Text style={styles.navWeatherText}>💨 {safeToFixed(result.weather.wind_speed, 1, "0.0")}km/h</Text>
-=======
               <Text style={styles.navWeatherText}>🌡️ {result.weather.temperature.toFixed(1)}°C</Text>
               <Text style={styles.navWeatherText}>💧 {result.weather.humidity}%</Text>
               <Text style={styles.navWeatherText}>🌧️ {result.weather.rainfall.toFixed(1)}mm</Text>
               <Text style={styles.navWeatherText}>💨 {result.weather.wind_speed.toFixed(1)}km/h</Text>
->>>>>>> 18dab5d510c938596f4c4c60ac85f0fb61e6b97e
             </View>
           )}
 
