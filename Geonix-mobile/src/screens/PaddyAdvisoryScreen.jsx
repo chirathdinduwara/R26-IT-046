@@ -1,5 +1,12 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Alert, Animated, ScrollView, View } from "react-native";
+import {
+  Alert,
+  Animated,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  View,
+} from "react-native";
 
 import PaddyDashboard from "../components/paddy/PaddyDashboard";
 import PaddyInputForm from "../components/paddy/PaddyInputForm";
@@ -43,7 +50,6 @@ const TEXT = {
     currentCropStage: "Current crop stage",
     languageName: "English",
     weatherForecast: "7-Day Weather Forecast",
-    swipeMore: "Swipe to see more",
     soilCondition: "Soil Condition",
     soilPH: "Soil pH",
     soilType: "Soil type",
@@ -98,7 +104,6 @@ const TEXT = {
     currentCropStage: "වත්මන් වර්ධන අදියර",
     languageName: "සිංහල",
     weatherForecast: "දින 7 කාලගුණ අනාවැකිය",
-    swipeMore: "තවත් බැලීමට ස්වයිප් කරන්න",
     soilCondition: "පසේ තත්ත්වය",
     soilPH: "පසේ pH අගය",
     soilType: "පස් වර්ගය",
@@ -251,8 +256,12 @@ export default function PaddyAdvisoryScreen() {
       return;
     }
 
-    if (Number.isNaN(cropWeekNumber) || cropWeekNumber <= 0) {
-      Alert.alert("Invalid Crop Week", "Please enter a valid crop week.");
+    if (
+      !Number.isInteger(cropWeekNumber) ||
+      cropWeekNumber < 1 ||
+      cropWeekNumber > 16
+    ) {
+      Alert.alert("Invalid Crop Week", "Crop week must be between 1 and 16.");
       return;
     }
 
@@ -489,8 +498,10 @@ export default function PaddyAdvisoryScreen() {
   const text = TEXT[language];
 
   return (
-    <View
+    <KeyboardAvoidingView
       style={styles.zoomRoot}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
       onMoveShouldSetResponderCapture={(event) =>
         showResult && event.nativeEvent.touches.length >= 2
       }
@@ -513,9 +524,13 @@ export default function PaddyAdvisoryScreen() {
       >
         <ScrollView
           style={styles.container}
-          contentContainerStyle={styles.contentContainer}
+          contentContainerStyle={[
+            styles.contentContainer,
+            { paddingBottom: 180 },
+          ]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
         >
           {!showResult ? (
             <PaddyInputForm
@@ -556,6 +571,6 @@ export default function PaddyAdvisoryScreen() {
           )}
         </ScrollView>
       </Animated.View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }

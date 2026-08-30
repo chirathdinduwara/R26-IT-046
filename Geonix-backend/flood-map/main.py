@@ -127,19 +127,21 @@ class FullMapInput(BaseModel):
 RIVER_API = "https://api.riverwatch.lk/v1/stations/6930a98221f7b8c9787f0622/history"
 
 async def get_latest_river_level() -> float:
-    now = datetime.now(timezone.utc)
     params = {
-        "limit":      1,
-        "start_date": (now - timedelta(days=3)).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
-        "end_date":   now.strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
+        "limit": 1
     }
+
     try:
         async with httpx.AsyncClient(timeout=8) as client:
             r = await client.get(RIVER_API, params=params)
             r.raise_for_status()
+
             print(f"Latest river level from API: {r.json()[0]['waterLevel']} m")
+
             return float(r.json()[0]["waterLevel"])
-    except Exception:
+
+    except Exception as e:
+        print(f"River API error: {e}")
         return 6.0   # conservative fallback keeps gate closed
 
 
