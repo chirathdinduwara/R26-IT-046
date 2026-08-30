@@ -531,13 +531,7 @@ async def _fetch_open_meteo_weather(client: httpx.AsyncClient, lat: float, lon: 
     }
 
 
-async def _fetch_live_weather_unified(client: httpx.AsyncClient, lat: float, lon: float, api_key: Optional[str] = None) -> Dict[str, float]:
-    if api_key:
-        try:
-            return await _fetch_weather_current(client, lat, lon, api_key)
-        except Exception:
-            pass
-
+async def _fetch_live_weather_unified(client: httpx.AsyncClient, lat: float, lon: float) -> Dict[str, float]:
     try:
         return await _fetch_open_meteo_weather(client, lat, lon)
     except Exception:
@@ -864,6 +858,8 @@ def _evaluate_route(
     safe_reasons = []
     danger_reasons = []
 
+    temp = weather.get("temperature", 28.0)
+    humidity = weather.get("humidity", 75.0)
     rain = weather.get("rainfall", 0.0)
     wind = weather.get("wind_speed", 10.0)
 
@@ -993,10 +989,6 @@ def _evaluate_route(
 
 
 async def _build_route_response(req: SafeRouteRequest) -> Dict[str, Any]:
-    openweather_key = _resolve_optional_api_key(
-        req.openweather_api_key,
-        ("OPENWEATHER_API_KEY", "OPENWEATHER_KEY"),
-    )
     google_key = _resolve_api_key(
         req.google_api_key,
         ("GOOGLE_MAPS_API_KEY", "GOOGLE_API_KEY"),
@@ -1018,12 +1010,10 @@ async def _build_route_response(req: SafeRouteRequest) -> Dict[str, Any]:
         except (httpx.HTTPError, ValueError) as exc:
             raise HTTPException(status_code=502, detail=f"Google Directions request failed: {exc}") from exc
 
-        weather = await _fetch_live_weather_unified(client, midpoint_lat, midpoint_lon, openweather_key)
+        weather = await _fetch_live_weather_unified(client, midpoint_lat, midpoint_lon)
 
-        try:
-            flood_geojson = await _fetch_flood_geojson(client, flood_api_url, openweather_key, req.threshold)
-        except (httpx.HTTPError, ValueError):
-            flood_geojson = {"type": "FeatureCollection", "features": []}
+        # Disabled querying the external flood API per user request
+        flood_geojson = {"type": "FeatureCollection", "features": []}
 
     flooded_areas, flood_shapes = _extract_flood_shapes(flood_geojson)
 
@@ -1151,15 +1141,8 @@ def predict(data: RoadRiskInput) -> Dict[str, Any]:
 
 @router.post("/flooded-areas")
 async def flooded_areas(req: FloodAreasRequest) -> Dict[str, Any]:
-    openweather_key = _resolve_api_key(
-        req.openweather_api_key,
-        ("OPENWEATHER_API_KEY", "OPENWEATHER_KEY"),
-        "OpenWeather API key",
-    )
-    flood_api_url = req.flood_api_url or DEFAULT_FLOOD_API_URL
-
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        geojson = await _fetch_flood_geojson(client, flood_api_url, openweather_key, req.threshold)
+    # Disabled querying the external flood API per user request
+    geojson = {"type": "FeatureCollection", "features": []}
     areas, _ = _extract_flood_shapes(geojson)
     return {"count": len(areas), "flooded_areas": areas, "geojson": geojson}
 
