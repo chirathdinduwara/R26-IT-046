@@ -1,5 +1,12 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Alert, Animated, ScrollView, View } from "react-native";
+import {
+  Alert,
+  Animated,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  View,
+} from "react-native";
 
 import PaddyDashboard from "../components/paddy/PaddyDashboard";
 import PaddyInputForm from "../components/paddy/PaddyInputForm";
@@ -489,8 +496,10 @@ export default function PaddyAdvisoryScreen() {
   const text = TEXT[language];
 
   return (
-    <View
+    <KeyboardAvoidingView
       style={styles.zoomRoot}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
       onMoveShouldSetResponderCapture={(event) =>
         showResult && event.nativeEvent.touches.length >= 2
       }
@@ -513,9 +522,13 @@ export default function PaddyAdvisoryScreen() {
       >
         <ScrollView
           style={styles.container}
-          contentContainerStyle={styles.contentContainer}
+          contentContainerStyle={[
+            styles.contentContainer,
+            { paddingBottom: 180 },
+          ]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
         >
           {!showResult ? (
             <PaddyInputForm
@@ -556,6 +569,6 @@ export default function PaddyAdvisoryScreen() {
           )}
         </ScrollView>
       </Animated.View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
