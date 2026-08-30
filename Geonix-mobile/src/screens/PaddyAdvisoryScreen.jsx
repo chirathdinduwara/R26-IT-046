@@ -21,6 +21,10 @@ const TEXT = {
     farmSize: "Farm Size (Hectare)",
     cropWeek: "Crop Week",
     getPrediction: "Get Prediction",
+    formSubtitle:
+      "Enter your farm details for an accurate yield prediction and expert advice.",
+    locationDetails: "Location Details",
+    cultivationDetails: "Cultivation Details",
     heroTitle: "Healthy Paddy,\nBetter Tomorrow",
     heroSub: "Smart insights for higher yield",
     predictedYield: "Predicted Yield",
@@ -67,6 +71,15 @@ const TEXT = {
     farmSize: "ගොවිබිම් ප්‍රමාණය (හෙක්ටයාර්)",
     cropWeek: "වගා සතිය",
     getPrediction: "අනාවැකිය ලබාගන්න",
+    formSubtitle:
+      "නිවැරදි අස්වැන්න අනාවැකියක් සහ වගා උපදෙස් සඳහා ඔබේ ගොවිබිම් තොරතුරු ඇතුළත් කරන්න.",
+    locationDetails: "ස්ථාන තොරතුරු",
+    cultivationDetails: "වගා තොරතුරු",
+    secureNote: "ඔබේ දත්ත අනාවැකිය සඳහා පමණක් ආරක්ෂිතව භාවිත කරයි.",
+    whatYouGet: "ඔබට ලැබෙන දේ",
+    yieldPrediction: "අස්වැන්න අනාවැකිය",
+    riskAssessment: "අවදානම් තක්සේරුව",
+    fertilizerAdvice: "පොහොර උපදෙස්",
     heroTitle: "සාර්ථක වී වගාවක්,\nහොඳ හෙටක්",
     heroSub: "ඉහළ අස්වැන්නකට බුද්ධිමත් උපදෙස්",
     predictedYield: "අනුමාන අස්වැන්න",
@@ -117,6 +130,8 @@ export default function PaddyAdvisoryScreen() {
   const [loading, setLoading] = useState(false);
   const [language, setLanguage] = useState("en");
   const [expandedAdvice, setExpandedAdvice] = useState(0);
+
+  // Pure React Native pinch zoom. No Reanimated/NativeWorklets dependency.
   const dashboardScale = useRef(new Animated.Value(1)).current;
   const dashboardTranslateX = useRef(new Animated.Value(0)).current;
   const dashboardTranslateY = useRef(new Animated.Value(0)).current;
@@ -218,6 +233,10 @@ export default function PaddyAdvisoryScreen() {
     ]).start();
   };
 
+  // --------------------------------------------------
+  // GET PREDICTION
+  // --------------------------------------------------
+
   const handlePredict = async () => {
     if (!district || !city || !season || !farmSize || !cropWeek) {
       Alert.alert("Missing Data", "Please fill all fields.");
@@ -296,6 +315,10 @@ export default function PaddyAdvisoryScreen() {
     }
   };
 
+  // --------------------------------------------------
+  // LOAD DISTRICTS
+  // --------------------------------------------------
+
   useEffect(() => {
     let mounted = true;
 
@@ -312,6 +335,18 @@ export default function PaddyAdvisoryScreen() {
         if (!res.ok) {
           throw new Error(`District API returned HTTP ${res.status}`);
         }
+
+        /*
+         * Expected backend:
+         *
+         * {
+         *   "districts": ["Ampara", "Badulla", ...]
+         * }
+         *
+         * Also supports:
+         *
+         * ["Ampara", "Badulla", ...]
+         */
 
         let districtList = [];
 
@@ -361,6 +396,10 @@ export default function PaddyAdvisoryScreen() {
     };
   }, []);
 
+  // --------------------------------------------------
+  // LOAD CITIES WHEN DISTRICT CHANGES
+  // --------------------------------------------------
+
   useEffect(() => {
     if (!district) {
       setCities([]);
@@ -387,6 +426,18 @@ export default function PaddyAdvisoryScreen() {
         if (!res.ok) {
           throw new Error(`City API returned HTTP ${res.status}`);
         }
+
+        /*
+         * Expected backend:
+         *
+         * {
+         *   "cities": ["Ampara", "Kalmunai", ...]
+         * }
+         *
+         * Also supports:
+         *
+         * ["Ampara", "Kalmunai", ...]
+         */
 
         let cityList = [];
 
