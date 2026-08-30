@@ -197,7 +197,6 @@ export default function PaddyDashboard({
       <View style={styles.sectionCard}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>{text.weatherForecast}</Text>
-          <Text style={styles.viewAll}>{text.swipeMore}</Text>
         </View>
 
         <ScrollView
