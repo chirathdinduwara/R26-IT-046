@@ -1,7 +1,16 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   ActivityIndicator,
+  ImageBackground,
   Modal,
+  Animated,
+  Easing,
   Platform,
   Pressable,
   RefreshControl,
@@ -9,8 +18,8 @@ import {
   StyleSheet,
   Text,
   View,
-  Image,
 } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { useNavigation } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -35,21 +44,32 @@ const MAP_TYPES = [
 ];
 
 const C = {
-  bg: "#0D1117",
-  surface: "#1C2128",
-  surfaceHi: "#262C36",
-  border: "#30363D",
-  text: "#F0F6FC",
-  sub: "#8B949E",
-  amber: "#F0A500",
-  amberDim: "#7A5200",
-  high: "#FF3B30",
-  highBg: "rgba(255, 59, 48, 0.15)",
-  moderate: "#FF9500",
-  moderateBg: "rgba(255, 149, 0, 0.15)",
-  low: "#34C759",
-  lowBg: "rgba(52, 199, 89, 0.15)",
+  bg: "#080C12",
+  surface: "#111720",
+  surfaceHi: "#1A2030",
+  surfaceMid: "#161C28",
+  border: "#252D3D",
+  borderLight: "#2E3850",
+  text: "#EEF2FF",
+  textSoft: "#C8D0E0",
+  sub: "#6B7A99",
+  subLight: "#8896B8",
+  amber: "#F5A623",
+  amberDim: "#7A4A00",
+  amberGlow: "rgba(245, 166, 35, 0.18)",
+  high: "#FF453A",
+  highBg: "rgba(255, 69, 58, 0.14)",
+  highGlow: "rgba(255, 69, 58, 0.35)",
+  moderate: "#FF9F0A",
+  moderateBg: "rgba(255, 159, 10, 0.14)",
+  low: "#30D158",
+  lowBg: "rgba(48, 209, 88, 0.14)",
+  blue: "#0A84FF",
+  teal: "#39D5C6",
+  tealBg: "rgba(57, 213, 198, 0.12)",
 };
+
+/* ───────────────────────── helpers (unchanged logic) ───────────────────────── */
 
 function percentage(score) {
   return `${Math.round(Number(score || 0) * 100)}%`;
@@ -150,7 +170,9 @@ function hasNumber(value) {
 async function resolveCurrentLocation() {
   const permission = await Location.requestForegroundPermissionsAsync();
   if (permission.status !== "granted") {
-    throw new Error("Location permission denied. Please enable GPS access to load real-time weather.");
+    throw new Error(
+      "Location permission denied. Please enable GPS access to load real-time weather.",
+    );
   }
 
   if (Platform.OS === "android") {
@@ -167,7 +189,10 @@ async function resolveCurrentLocation() {
         accuracy: Location.Accuracy.High,
       }),
       new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("Location request timed out.")), LOCATION_TIMEOUT_MS),
+        setTimeout(
+          () => reject(new Error("Location request timed out.")),
+          LOCATION_TIMEOUT_MS,
+        ),
       ),
     ]);
     return {
@@ -189,16 +214,23 @@ async function resolveCurrentLocation() {
     } catch {
       // Fallback
     }
-    throw new Error("Unable to get your GPS location. Please turn on location services and refresh.");
+    throw new Error(
+      "Unable to get your GPS location. Please turn on location services and refresh.",
+    );
   }
 }
 
 async function requestNotificationPermission() {
-  if (Platform.OS === "web" || !Notifications || typeof Notifications.getPermissionsAsync !== "function") {
+  if (
+    Platform.OS === "web" ||
+    !Notifications ||
+    typeof Notifications.getPermissionsAsync !== "function"
+  ) {
     return false;
   }
   try {
-    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    const { status: existingStatus } =
+      await Notifications.getPermissionsAsync();
     let finalStatus = existingStatus;
     if (existingStatus !== "granted") {
       const { status } = await Notifications.requestPermissionsAsync();
@@ -212,7 +244,11 @@ async function requestNotificationPermission() {
 }
 
 async function triggerLocalNotification(title, body) {
-  if (Platform.OS === "web" || !Notifications || typeof Notifications.scheduleNotificationAsync !== "function") {
+  if (
+    Platform.OS === "web" ||
+    !Notifications ||
+    typeof Notifications.scheduleNotificationAsync !== "function"
+  ) {
     return;
   }
   try {
@@ -242,7 +278,10 @@ async function showCriticalAlertOncePerDay(summary) {
   try {
     const granted = await requestNotificationPermission();
     if (granted) {
-      await triggerLocalNotification("Critical Dengue Risk Alert", summary.alert.message);
+      await triggerLocalNotification(
+        "Critical Dengue Risk Alert",
+        summary.alert.message,
+      );
     }
   } catch {
     // Ignore notification failures
@@ -260,6 +299,17 @@ function areaRiskForWeek(area, weekLabel) {
   );
 }
 
+/* Dark overlay over the photo, tinted by risk level (UI only) */
+function heroOverlay(level) {
+  if (level === "high")
+    return ["rgba(40,8,12,0.75)", "rgba(24,10,16,0.62)", "rgba(8,12,18,0.97)"];
+  if (level === "middle" || level === "medium")
+    return ["rgba(45,24,4,0.75)", "rgba(28,16,10,0.62)", "rgba(8,12,18,0.97)"];
+  return ["rgba(4,36,24,0.75)", "rgba(8,24,22,0.62)", "rgba(8,12,18,0.97)"];
+}
+
+/* ───────────────────────────────── screen ───────────────────────────────── */
+
 export default function DengueRiskScreen() {
   const navigation = useNavigation();
   const mapRef = useRef(null);
@@ -267,55 +317,64 @@ export default function DengueRiskScreen() {
 
   const [lang, setLang] = useState("EN");
 
-  const t = useCallback((key) => {
-    const translations = {
-      EN: {
-        title: "Dengue Warning",
-        currentRisk: "CURRENT LOCATION RISK",
-        climate: "Real-Time Climate Indicators",
-        weekSummary: "Selected Week Summary",
-        mapTitle: "Risk Zone Map",
-        weeklyTrend: "Weekly Case Density Trend",
-        threatScore: "Calculated Zone Threat Score",
-        aiAssistant: "AI Safety Assistant",
-        recenter: "Recenter",
-        nextWeekForecast: "Next Week Forecast",
-        activeWeek: "Active Week",
-        lowRisk: "Low Risk",
-        moderate: "Moderate",
-        highRisk: "High Risk",
-      },
-      SI: {
-        title: "ඩෙංගු අනතුරු ඇඟවීම්",
-        currentRisk: "වත්මන් ස්ථානයේ අවදානම",
-        climate: "තථ්‍ය කාලීන දේශගුණික දර්ශක",
-        weekSummary: "තෝරාගත් සතියේ සාරාංශය",
-        mapTitle: "අවදානම් කලාප සිතියම",
-        weeklyTrend: "සතිපතා රෝගී ඝනත්ව ප්‍රවණතාවය",
-        threatScore: "ගණනය කරන ලද කලාපීය තර්ජන ලකුණු",
-        aiAssistant: "AI ආරක්ෂක සහකරු",
-        recenter: "නැවත යොමු කරන්න",
-        nextWeekForecast: "ලබන සතියේ පුරෝකථනය",
-        activeWeek: "වත්මන් සතිය",
-        lowRisk: "අඩු අවදානම",
-        moderate: "මධ්‍යස්ථ අවදානම",
-        highRisk: "වැඩි අවදානම",
-      }
-    };
-    return translations[lang][key] || key;
-  }, [lang]);
+  const t = useCallback(
+    (key) => {
+      const translations = {
+        EN: {
+          title: "Dengue Warning",
+          currentRisk: "CURRENT LOCATION RISK",
+          climate: "Real-Time Climate Indicators",
+          weekSummary: "Selected Week Summary",
+          mapTitle: "Risk Zone Map",
+          weeklyTrend: "Weekly Case Density Trend",
+          threatScore: "Calculated Zone Threat Score",
+          aiAssistant: "Ask about prevention",
+          recenter: "Recenter",
+          nextWeekForecast: "Next Week Forecast",
+          activeWeek: "Active Week",
+          lowRisk: "Low Risk",
+          moderate: "Moderate",
+          highRisk: "High Risk",
+        },
+        SI: {
+          title: "ඩෙංගු අනතුරු ඇඟවීම්",
+          currentRisk: "වත්මන් ස්ථානයේ අවදානම",
+          climate: "තථ්‍ය කාලීන දේශගුණික දර්ශක",
+          weekSummary: "තෝරාගත් සතියේ සාරාංශය",
+          mapTitle: "අවදානම් කලාප සිතියම",
+          weeklyTrend: "සතිපතා රෝගී ඝනත්ව ප්‍රවණතාවය",
+          threatScore: "ගණනය කරන ලද කලාපීය තර්ජන ලකුණු",
+          aiAssistant: "වැළැක්වීම ගැන අසන්න",
+          recenter: "නැවත යොමු කරන්න",
+          nextWeekForecast: "ලබන සතියේ පුරෝකථනය",
+          activeWeek: "වත්මන් සතිය",
+          lowRisk: "අඩු අවදානම",
+          moderate: "මධ්‍යස්ථ අවදානම",
+          highRisk: "වැඩි අවදානම",
+        },
+      };
+      return translations[lang][key] || key;
+    },
+    [lang],
+  );
 
   useEffect(() => {
     navigation.setOptions({
       title: t("title"),
       headerRight: () => (
         <View style={styles.headerRightContainer}>
-          <Pressable 
-            style={[styles.langBtn, lang === "SI" && styles.langBtnActive]} 
+          <Pressable
+            style={[styles.langBtn, lang === "SI" && styles.langBtnActive]}
             onPress={() => setLang(lang === "EN" ? "SI" : "EN")}
           >
-            <MaterialCommunityIcons name="translate" size={14} color={lang === "SI" ? C.amber : C.sub} />
-            <Text style={[styles.langBtnText, lang === "SI" && { color: C.amber }]}>
+            <MaterialCommunityIcons
+              name="translate"
+              size={14}
+              color={lang === "SI" ? C.amber : C.sub}
+            />
+            <Text
+              style={[styles.langBtnText, lang === "SI" && { color: C.amber }]}
+            >
               {lang === "EN" ? "සිංහල" : "EN"}
             </Text>
           </Pressable>
@@ -324,9 +383,10 @@ export default function DengueRiskScreen() {
             <Text style={styles.headerBadgeText}>RISK ALERTS</Text>
           </View>
         </View>
-      )
+      ),
     });
   }, [navigation, lang, t]);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [mapAreas, setMapAreas] = useState([]);
@@ -352,7 +412,8 @@ export default function DengueRiskScreen() {
     setLoading(true);
     setError("");
     try {
-      const { mapData, summaryData, preventionData } = await fetchDashboardData(true);
+      const { mapData, summaryData, preventionData } =
+        await fetchDashboardData(true);
       setMapAreas(mapData);
       setSummary(summaryData);
       setPrevention(preventionData);
@@ -369,7 +430,8 @@ export default function DengueRiskScreen() {
     setRefreshing(true);
     setError("");
     try {
-      const { mapData, summaryData, preventionData } = await fetchDashboardData(true);
+      const { mapData, summaryData, preventionData } =
+        await fetchDashboardData(true);
       setMapAreas(mapData);
       setSummary(summaryData);
       setPrevention(preventionData);
@@ -384,7 +446,11 @@ export default function DengueRiskScreen() {
   }, [fetchDashboardData]);
 
   useEffect(() => {
-    if (Platform.OS !== "web" && Notifications && typeof Notifications.setNotificationHandler === "function") {
+    if (
+      Platform.OS !== "web" &&
+      Notifications &&
+      typeof Notifications.setNotificationHandler === "function"
+    ) {
       try {
         Notifications.setNotificationHandler({
           handleNotification: async () => ({
@@ -427,7 +493,10 @@ export default function DengueRiskScreen() {
     }
     existingMap.set(currentLabel, summary.current_risk);
     if (summary.next_week_risk) {
-      existingMap.set(summary.next_week_risk.week_label, summary.next_week_risk);
+      existingMap.set(
+        summary.next_week_risk.week_label,
+        summary.next_week_risk,
+      );
     }
 
     const result = [];
@@ -452,7 +521,11 @@ export default function DengueRiskScreen() {
       if (!item) {
         item = summary.history?.find((h) => {
           const hMatch = h.week_label.match(/(\d{4})[-_]?[wW]?(\d{1,2})/);
-          return hMatch && parseInt(hMatch[1], 10) === targetYear && parseInt(hMatch[2], 10) === targetWeekNum;
+          return (
+            hMatch &&
+            parseInt(hMatch[1], 10) === targetYear &&
+            parseInt(hMatch[2], 10) === targetWeekNum
+          );
         });
       }
 
@@ -463,7 +536,10 @@ export default function DengueRiskScreen() {
         if (offset > 0 && summary.next_week_risk) {
           baseScore = summary.next_week_risk.risk_score;
         }
-        const syntheticScore = Math.min(0.95, Math.max(0.1, baseScore + (offset * 0.02)));
+        const syntheticScore = Math.min(
+          0.95,
+          Math.max(0.1, baseScore + offset * 0.02),
+        );
         let level = "low";
         if (syntheticScore >= 0.65) level = "high";
         else if (syntheticScore >= 0.35) level = "middle";
@@ -495,6 +571,10 @@ export default function DengueRiskScreen() {
     return getRiskColorConfig(summary?.next_week_risk?.risk_level);
   }, [summary]);
 
+  const selectedRiskConfig = useMemo(() => {
+    return getRiskColorConfig(selectedWeekRisk?.risk_level);
+  }, [selectedWeekRisk]);
+
   const recenterMap = (targetRef = mapRef) => {
     if (!targetRef.current || !summary?.center) {
       return;
@@ -514,11 +594,41 @@ export default function DengueRiskScreen() {
     navigation.navigate("DengueChatbot", { prevention });
   };
 
+  const pulse = useRef(new Animated.Value(0)).current;
+  const fabScale = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.timing(pulse, {
+        toValue: 1,
+        duration: 1800,
+        easing: Easing.out(Easing.ease),
+        useNativeDriver: true,
+      }),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [pulse]);
+
+  const pulseScale = pulse.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 1.22],
+  });
+  const pulseOpacity = pulse.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.5, 0],
+  });
+
   if (loading) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator size="large" color={C.amber} />
-        <Text style={styles.loadingText}>Analyzing Dengue Risk Vectors...</Text>
+        <View style={styles.loadingRing}>
+          <ActivityIndicator size="large" color={C.amber} />
+        </View>
+        <Text style={styles.loadingText}>Analyzing Dengue Risk</Text>
+        <Text style={styles.loadingSubText}>
+          Fetching live climate & location data
+        </Text>
       </View>
     );
   }
@@ -526,21 +636,35 @@ export default function DengueRiskScreen() {
   if (error) {
     return (
       <View style={styles.centered}>
-        <MaterialCommunityIcons name="alert-circle-outline" size={48} color={C.high} />
+        <View style={styles.errorIconWrap}>
+          <MaterialCommunityIcons
+            name="alert-circle-outline"
+            size={40}
+            color={C.high}
+          />
+        </View>
         <Text style={styles.errorTitle}>Unable to Load Risk Data</Text>
         <Text style={styles.errorText}>{error}</Text>
         <Pressable style={styles.retryButton} onPress={loadDashboard}>
+          <MaterialCommunityIcons name="refresh" size={16} color={C.bg} />
           <Text style={styles.retryText}>Retry Loading</Text>
         </Pressable>
       </View>
     );
   }
 
+  const heroColor = currentRiskConfig.color;
+  const heroScoreNum = Math.round(
+    Number(summary?.current_risk?.risk_score || 0) * 100,
+  );
+  const meterLeft = `${Math.min(100, Math.max(0, heroScoreNum))}%`;
+
   return (
     <View style={styles.screenContainer}>
       <ScrollView
         style={styles.screen}
         contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -551,169 +675,457 @@ export default function DengueRiskScreen() {
           />
         }
       >
-        {/* HERO CARD WITH COLOR-CODED RISK BADGE */}
-        <View style={[styles.heroCard, { borderLeftColor: currentRiskConfig.color }]}>
-          {/* Transparent Mosquito Watermark */}
-          <View style={styles.watermarkContainer}>
-            <Image
-              source={require("../../assets/mosquito.png")}
-              style={styles.watermarkImage}
-              resizeMode="contain"
-            />
-          </View>
-          <View style={styles.cardHeaderRow}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.cardSubTitle}>{t("currentRisk")}</Text>
-              <Text style={styles.areaName}>{summary?.area_name}</Text>
-              <View style={styles.locationPill}>
-                <MaterialCommunityIcons name="crosshairs-gps" size={12} color={C.sub} />
-                <Text style={styles.locationText}>
-                  GPS: {formatCoordinate(summary?.user_location?.latitude)}, {formatCoordinate(summary?.user_location?.longitude)}
+        {/* ── HERO CARD ── */}
+        <ImageBackground
+          source={require("../../assets/colombo-hero.jpg")}
+          style={[styles.heroCard, { borderColor: heroColor + "55" }]}
+          imageStyle={styles.heroBgImage}
+          resizeMode="cover"
+        >
+          {/* risk-tinted overlay: photo shows at the top, dark at the bottom for text */}
+          <LinearGradient
+            colors={heroOverlay(summary?.current_risk?.risk_level)}
+            locations={[0, 0.45, 1]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
+            style={StyleSheet.absoluteFillObject}
+          />
+
+          {/* glowing accent line */}
+          <LinearGradient
+            colors={[heroColor, heroColor + "00"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.heroAccentBar}
+          />
+
+          {/* Top row */}
+          <View style={styles.heroTopRow}>
+            <View style={styles.heroLocationBlock}>
+              <Text style={styles.heroEyebrow}>{t("currentRisk")}</Text>
+              <View style={styles.heroLocationPinRow}>
+                <MaterialCommunityIcons
+                  name="map-marker"
+                  size={18}
+                  color={heroColor}
+                />
+                <Text style={styles.heroAreaName} numberOfLines={1}>
+                  {summary?.area_name}
                 </Text>
               </View>
+              <Text style={styles.heroCoords}>
+                GPS {formatCoordinate(summary?.user_location?.latitude)},{" "}
+                {formatCoordinate(summary?.user_location?.longitude)}
+              </Text>
             </View>
-
-            {/* Dynamic Status Badge */}
-            <View style={[styles.statusBadge, { backgroundColor: currentRiskConfig.bg, borderColor: currentRiskConfig.color }]}>
-              <MaterialCommunityIcons name={currentRiskConfig.icon} size={16} color={currentRiskConfig.color} />
-              <Text style={[styles.statusBadgeText, { color: currentRiskConfig.color }]}>
+            <View
+              style={[
+                styles.heroBadge,
+                { backgroundColor: heroColor, borderColor: heroColor },
+              ]}
+            >
+              <MaterialCommunityIcons
+                name={currentRiskConfig.icon}
+                size={14}
+                color={C.bg}
+              />
+              <Text style={styles.heroBadgeText}>
                 {currentRiskConfig.label}
               </Text>
             </View>
           </View>
 
-          <View style={[styles.riskMetricContainer, { backgroundColor: currentRiskConfig.bg, borderColor: currentRiskConfig.color + "44" }]}>
-            <View style={styles.riskValueContainer}>
-              <Text style={[styles.riskValueText, { color: currentRiskConfig.color }]}>
-                {percentage(summary?.current_risk?.risk_score)}
-              </Text>
-              <Text style={styles.riskPercentSign}></Text>
-            </View>
-            <View style={styles.riskDivider} />
-            <View style={styles.riskDetailsContainer}>
-              <Text style={styles.riskMetricLabel}>{t("threatScore")}</Text>
-              <Text style={styles.riskMetricWeek}>
-                Timeline: {formatWeekLabel(summary?.current_risk?.week_label, summary?.current_risk?.week_label)}
-              </Text>
+          {/* Score */}
+          <View style={styles.heroScoreRow}>
+            <Text style={[styles.heroScoreText, { color: heroColor }]}>
+              {heroScoreNum}
+            </Text>
+            <Text style={[styles.heroScorePct, { color: heroColor }]}>%</Text>
+            <View style={styles.heroScoreMeta}>
+              <Text style={styles.heroScoreSub}>{t("threatScore")}</Text>
+              <View
+                style={[styles.heroWeekChip, { borderColor: heroColor + "66" }]}
+              >
+                <MaterialCommunityIcons
+                  name="calendar-week"
+                  size={12}
+                  color={heroColor}
+                />
+                <Text style={[styles.heroWeekChipText, { color: heroColor }]}>
+                  {formatWeekLabel(
+                    summary?.current_risk?.week_label,
+                    summary?.current_risk?.week_label,
+                  )}
+                </Text>
+              </View>
             </View>
           </View>
 
+          {/* Risk meter */}
+          <View style={styles.meterWrap}>
+            <View style={styles.meterTrack}>
+              <View
+                style={[styles.meterSeg, { flex: 35, backgroundColor: C.low }]}
+              />
+              <View
+                style={[
+                  styles.meterSeg,
+                  { flex: 30, backgroundColor: C.moderate },
+                ]}
+              />
+              <View
+                style={[styles.meterSeg, { flex: 35, backgroundColor: C.high }]}
+              />
+            </View>
+            <View
+              style={[
+                styles.meterThumb,
+                { left: meterLeft, borderColor: heroColor },
+              ]}
+            />
+            <View style={styles.meterLabels}>
+              <Text style={styles.meterLabelText}>Low</Text>
+              <Text style={styles.meterLabelText}>Moderate</Text>
+              <Text style={styles.meterLabelText}>High</Text>
+            </View>
+          </View>
+
+          {/* Alert banner */}
           {summary?.alert?.message ? (
             <View
               style={[
                 styles.alertBanner,
-                summary.alert.is_critical ? styles.alertBannerCritical : styles.alertBannerNormal,
+                summary.alert.is_critical
+                  ? styles.alertBannerCritical
+                  : styles.alertBannerNormal,
               ]}
             >
-              <MaterialCommunityIcons
-                name={summary.alert.is_critical ? "alert-decagram" : "information-outline"}
-                size={20}
-                color={summary.alert.is_critical ? C.high : C.low}
-              />
+              <View style={styles.alertIconWrap}>
+                <MaterialCommunityIcons
+                  name={
+                    summary.alert.is_critical ? "alert" : "information-outline"
+                  }
+                  size={18}
+                  color={summary.alert.is_critical ? C.high : C.low}
+                />
+              </View>
               <Text style={styles.alertText}>{summary.alert.message}</Text>
             </View>
           ) : null}
-        </View>
+        </ImageBackground>
 
-        {/* CLIMATE INDICATORS CARD */}
+        {/* ── CLIMATE CARD ── */}
         {summary?.weather ? (
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>{t("climate")}</Text>
+            <View style={styles.cardTitleRow}>
+              <View style={styles.cardTitleIconWrap}>
+                <MaterialCommunityIcons
+                  name="weather-partly-cloudy"
+                  size={16}
+                  color={C.teal}
+                />
+              </View>
+              <Text style={styles.cardTitle}>{t("climate")}</Text>
+            </View>
+
             <View style={styles.weatherGrid}>
               <View style={styles.weatherItem}>
-                <View style={styles.iconCircle}>
-                  <MaterialCommunityIcons name="thermometer" size={18} color={C.amber} />
+                <View
+                  style={[
+                    styles.weatherIconCircle,
+                    {
+                      borderColor: "rgba(255,100,60,0.4)",
+                      backgroundColor: "rgba(255,100,60,0.10)",
+                    },
+                  ]}
+                >
+                  <MaterialCommunityIcons
+                    name="thermometer"
+                    size={20}
+                    color="#FF6B3D"
+                  />
                 </View>
-                <View>
-                  <Text style={styles.weatherValue}>
-                    {hasNumber(summary.weather.temperature_c) ? `${summary.weather.temperature_c.toFixed(1)}°C` : "--"}
-                  </Text>
-                  <Text style={styles.weatherLabel}>Temperature</Text>
-                </View>
+                <Text style={styles.weatherValue}>
+                  {hasNumber(summary.weather.temperature_c)
+                    ? `${summary.weather.temperature_c.toFixed(1)}°C`
+                    : "--"}
+                </Text>
+                <Text style={styles.weatherLabel}>Temperature</Text>
               </View>
+
               <View style={styles.weatherItem}>
-                <View style={styles.iconCircle}>
-                  <MaterialCommunityIcons name="water-outline" size={18} color={C.amber} />
+                <View
+                  style={[
+                    styles.weatherIconCircle,
+                    {
+                      borderColor: "rgba(10,132,255,0.4)",
+                      backgroundColor: "rgba(10,132,255,0.10)",
+                    },
+                  ]}
+                >
+                  <MaterialCommunityIcons
+                    name="water-outline"
+                    size={20}
+                    color={C.blue}
+                  />
                 </View>
-                <View>
-                  <Text style={styles.weatherValue}>
-                    {hasNumber(summary.weather.humidity_pct) ? `${Math.round(summary.weather.humidity_pct)}%` : "--"}
-                  </Text>
-                  <Text style={styles.weatherLabel}>Humidity</Text>
-                </View>
+                <Text style={styles.weatherValue}>
+                  {hasNumber(summary.weather.humidity_pct)
+                    ? `${Math.round(summary.weather.humidity_pct)}%`
+                    : "--"}
+                </Text>
+                <Text style={styles.weatherLabel}>Humidity</Text>
               </View>
+
               <View style={styles.weatherItem}>
-                <View style={styles.iconCircle}>
-                  <MaterialCommunityIcons name="weather-pouring" size={18} color={C.amber} />
+                <View
+                  style={[
+                    styles.weatherIconCircle,
+                    {
+                      borderColor: "rgba(57,213,198,0.4)",
+                      backgroundColor: "rgba(57,213,198,0.10)",
+                    },
+                  ]}
+                >
+                  <MaterialCommunityIcons
+                    name="weather-pouring"
+                    size={20}
+                    color={C.teal}
+                  />
                 </View>
-                <View>
-                  <Text style={styles.weatherValue}>
-                    {hasNumber(summary.weather.current_rain_mm_h) ? `${summary.weather.current_rain_mm_h.toFixed(1)} mm/h` : "0.0 mm/h"}
-                  </Text>
-                  <Text style={styles.weatherLabel}>Current Rain</Text>
-                </View>
+                <Text style={styles.weatherValue}>
+                  {hasNumber(summary.weather.current_rain_mm_h)
+                    ? `${summary.weather.current_rain_mm_h.toFixed(1)} mm/h`
+                    : "0.0 mm/h"}
+                </Text>
+                <Text style={styles.weatherLabel}>Current Rain</Text>
               </View>
+
               <View style={styles.weatherItem}>
-                <View style={styles.iconCircle}>
-                  <MaterialCommunityIcons name="weather-rainy" size={18} color={C.amber} />
+                <View
+                  style={[
+                    styles.weatherIconCircle,
+                    {
+                      borderColor: "rgba(245,166,35,0.4)",
+                      backgroundColor: "rgba(245,166,35,0.10)",
+                    },
+                  ]}
+                >
+                  <MaterialCommunityIcons
+                    name="weather-rainy"
+                    size={20}
+                    color={C.amber}
+                  />
                 </View>
-                <View>
-                  <Text style={styles.weatherValue}>
-                    {hasNumber(summary.weather.today_rain_mm) ? `${summary.weather.today_rain_mm.toFixed(1)} mm` : "0.0 mm"}
-                  </Text>
-                  <Text style={styles.weatherLabel}>Today's Rain</Text>
-                </View>
+                <Text style={styles.weatherValue}>
+                  {hasNumber(summary.weather.today_rain_mm)
+                    ? `${summary.weather.today_rain_mm.toFixed(1)} mm`
+                    : "0.0 mm"}
+                </Text>
+                <Text style={styles.weatherLabel}>Today's Rain</Text>
               </View>
-              <View style={styles.weatherItem}>
-                <View style={styles.iconCircle}>
-                  <MaterialCommunityIcons name="calendar-range-outline" size={18} color={C.amber} />
+
+              <View style={[styles.weatherItem, styles.weatherItemFull]}>
+                <View
+                  style={[
+                    styles.weatherIconCircle,
+                    {
+                      borderColor: "rgba(245,166,35,0.4)",
+                      backgroundColor: "rgba(245,166,35,0.10)",
+                    },
+                  ]}
+                >
+                  <MaterialCommunityIcons
+                    name="chart-bar"
+                    size={20}
+                    color={C.amber}
+                  />
                 </View>
-                <View>
+                <View style={styles.weatherFullText}>
                   <Text style={styles.weatherValue}>
-                    {hasNumber(summary.weather.rainfall_7day_avg) ? `${summary.weather.rainfall_7day_avg.toFixed(1)} mm/day` : "0.0 mm/day"}
+                    {hasNumber(summary.weather.rainfall_7day_avg)
+                      ? `${summary.weather.rainfall_7day_avg.toFixed(1)} mm/day`
+                      : "0.0 mm/day"}
                   </Text>
-                  <Text style={styles.weatherLabel}>7-Day Rain Avg</Text>
+                  <Text style={styles.weatherLabel}>
+                    7-day Average Rainfall
+                  </Text>
+                </View>
+                <View style={styles.weatherMiniBar}>
+                  {[0.3, 0.5, 0.4, 0.7, 0.6, 0.8, 0.9].map((h, i) => (
+                    <View
+                      key={i}
+                      style={[
+                        styles.weatherMiniBarItem,
+                        {
+                          height: Math.round(h * 24),
+                          backgroundColor: i === 6 ? C.amber : C.amber + "55",
+                        },
+                      ]}
+                    />
+                  ))}
                 </View>
               </View>
             </View>
           </View>
         ) : null}
 
-        {/* TRENDS SUMMARY ROW */}
-        <View style={styles.rowCards}>
-          <View style={styles.smallCard}>
-            <Text style={styles.smallTitle}>{t("nextWeekForecast")}</Text>
-            <Text style={[styles.smallValue, { color: nextWeekRiskConfig.color }]}>
+        {/* ── WEEKLY OUTLOOK ── */}
+        <View style={styles.sectionHeaderRow}>
+          <Text style={styles.sectionHeaderText}>Weekly Outlook</Text>
+        </View>
+
+        {/* Active vs Next week */}
+        <View style={styles.duoRow}>
+          <View
+            style={[
+              styles.duoCard,
+              { borderColor: selectedRiskConfig.color + "55" },
+            ]}
+          >
+            <Text style={styles.duoTitle}>{t("activeWeek")}</Text>
+            <Text
+              style={[styles.duoScore, { color: selectedRiskConfig.color }]}
+            >
+              {percentage(selectedWeekRisk?.risk_score)}
+            </Text>
+            <View
+              style={[
+                styles.duoBadge,
+                { backgroundColor: selectedRiskConfig.bg },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.duoBadgeText,
+                  { color: selectedRiskConfig.color },
+                ]}
+              >
+                {selectedRiskConfig.label}
+              </Text>
+            </View>
+            <Text style={styles.duoWeek} numberOfLines={1}>
+              {formatWeekLabel(selectedWeek, summary?.current_risk?.week_label)}
+            </Text>
+          </View>
+
+          <View
+            style={[
+              styles.duoCard,
+              { borderColor: nextWeekRiskConfig.color + "55" },
+            ]}
+          >
+            <Text style={styles.duoTitle}>{t("nextWeekForecast")}</Text>
+            <Text
+              style={[styles.duoScore, { color: nextWeekRiskConfig.color }]}
+            >
               {percentage(summary?.next_week_risk?.risk_score)}
             </Text>
-            <View style={[styles.smallBadge, { backgroundColor: nextWeekRiskConfig.bg }]}>
-              <Text style={[styles.smallBadgeText, { color: nextWeekRiskConfig.color }]}>
+            <View
+              style={[
+                styles.duoBadge,
+                { backgroundColor: nextWeekRiskConfig.bg },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.duoBadgeText,
+                  { color: nextWeekRiskConfig.color },
+                ]}
+              >
                 {nextWeekRiskConfig.label}
               </Text>
             </View>
-          </View>
-          <View style={styles.smallCard}>
-            <Text style={styles.smallTitle}>{t("activeWeek")}</Text>
-            <Text style={[styles.smallValue, { color: currentRiskConfig.color }]}>
-              {formatWeekLabel(summary?.current_risk?.week_label, summary?.current_risk?.week_label)}
+            <Text style={styles.duoWeek} numberOfLines={1}>
+              {formatWeekLabel(
+                summary?.next_week_risk?.week_label,
+                summary?.current_risk?.week_label,
+              )}
             </Text>
-            <Text style={styles.smallHint}>Live Risk Level</Text>
           </View>
         </View>
 
-        {/* INTERACTIVE MAP CONTAINER WITH TRANSLUCENT POLYGONS */}
+        {/* Trend bars (tap to select week) */}
+        <View style={styles.card}>
+          <View style={styles.cardTitleRow}>
+            <View
+              style={[
+                styles.cardTitleIconWrap,
+                { backgroundColor: C.amberGlow },
+              ]}
+            >
+              <MaterialCommunityIcons
+                name="chart-line-variant"
+                size={16}
+                color={C.amber}
+              />
+            </View>
+            <Text style={styles.cardTitle}>Risk Trend</Text>
+            <Text style={styles.cardHint}>Tap a bar</Text>
+          </View>
+          <View style={styles.trendRow}>
+            {formattedWeekList.map((item) => {
+              const cfg = getRiskColorConfig(item.risk_level);
+              const barH = Math.max(
+                10,
+                Math.round((item.risk_score || 0.1) * 90),
+              );
+              const isActive = selectedWeek === item.week_label;
+              const wkMatch = item.week_label.match(/(\d{1,2})$/);
+              return (
+                <Pressable
+                  key={`trend-${item.week_label}`}
+                  style={styles.trendCol}
+                  onPress={() => setSelectedWeek(item.week_label)}
+                >
+                  <Text
+                    style={[styles.trendPct, isActive && { color: cfg.color }]}
+                  >
+                    {Math.round((item.risk_score || 0) * 100)}
+                  </Text>
+                  <View
+                    style={[
+                      styles.trendBar,
+                      {
+                        height: barH,
+                        backgroundColor: isActive
+                          ? cfg.color
+                          : cfg.color + "55",
+                      },
+                    ]}
+                  />
+                  <Text
+                    style={[styles.trendLabel, isActive && { color: C.text }]}
+                  >
+                    W{wkMatch ? parseInt(wkMatch[1], 10) : ""}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+
+        {/* ── MAP CARD ── */}
         <View style={styles.mapCard}>
           <View style={styles.mapCardHeader}>
             <Text style={styles.sectionTitle}>
-              {t("mapTitle")} ({formatWeekLabel(selectedWeek, summary?.current_risk?.week_label)})
+              {t("mapTitle")} (
+              {formatWeekLabel(selectedWeek, summary?.current_risk?.week_label)}
+              )
             </Text>
-            <Pressable style={styles.expandButton} onPress={() => setIsFullscreenMap(true)}>
-              <MaterialCommunityIcons name="fullscreen" size={18} color={C.amber} />
+            <Pressable
+              style={styles.expandButton}
+              onPress={() => setIsFullscreenMap(true)}
+            >
+              <MaterialCommunityIcons
+                name="fullscreen"
+                size={16}
+                color={C.amber}
+              />
               <Text style={styles.expandButtonText}>Expand</Text>
             </Pressable>
           </View>
 
-          {/* 6 Past + 2 Future Weeks Filters Bar */}
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -722,7 +1134,10 @@ export default function DengueRiskScreen() {
             {formattedWeekList.map((item) => {
               const itemConfig = getRiskColorConfig(item.risk_level);
               const isActive = selectedWeek === item.week_label;
-              const userFriendlyWeek = formatWeekLabel(item.week_label, summary?.current_risk?.week_label);
+              const userFriendlyWeek = formatWeekLabel(
+                item.week_label,
+                summary?.current_risk?.week_label,
+              );
               return (
                 <Pressable
                   key={item.week_label}
@@ -735,8 +1150,14 @@ export default function DengueRiskScreen() {
                     },
                   ]}
                 >
-                  <Text style={styles.filterWeek}>{userFriendlyWeek}</Text>
-                  <Text style={[styles.filterRisk, { color: itemConfig.color }]}>
+                  <Text
+                    style={[styles.filterWeek, isActive && { color: C.text }]}
+                  >
+                    {userFriendlyWeek}
+                  </Text>
+                  <Text
+                    style={[styles.filterRisk, { color: itemConfig.color }]}
+                  >
                     {percentage(item.risk_score)}
                   </Text>
                 </Pressable>
@@ -744,7 +1165,6 @@ export default function DengueRiskScreen() {
             })}
           </ScrollView>
 
-          {/* Map Container with 300px height */}
           <View style={styles.mapContainer}>
             <MapView
               ref={mapRef}
@@ -752,7 +1172,6 @@ export default function DengueRiskScreen() {
               initialRegion={initialRegion}
               mapType={mapType}
             >
-              {/* Translucent Ward Risk Polygons */}
               {mapAreas.map((area) => {
                 const risk = areaRiskForWeek(area, selectedWeek);
                 const colors = riskStyle(risk.risk_level);
@@ -766,8 +1185,6 @@ export default function DengueRiskScreen() {
                   />
                 );
               })}
-
-              {/* Custom Vector Badge Markers */}
               {mapAreas.map((area) => {
                 const risk = areaRiskForWeek(area, selectedWeek);
                 const riskCfg = getRiskColorConfig(risk.risk_level);
@@ -778,14 +1195,19 @@ export default function DengueRiskScreen() {
                     title={`${area.area_name} (${riskCfg.label})`}
                     description={`${percentage(risk.risk_score)} - ${formatWeekLabel(selectedWeek, summary?.current_risk?.week_label)}`}
                   >
-                    <View style={[styles.customMarkerBadge, { backgroundColor: riskCfg.color }]}>
-                      <Text style={styles.customMarkerBadgeText}>{percentage(risk.risk_score)}</Text>
+                    <View
+                      style={[
+                        styles.customMarkerBadge,
+                        { backgroundColor: riskCfg.color },
+                      ]}
+                    >
+                      <Text style={styles.customMarkerBadgeText}>
+                        {percentage(risk.risk_score)}
+                      </Text>
                     </View>
                   </Marker>
                 );
               })}
-
-              {/* Pulsing GPS Location Marker */}
               {summary?.user_location ? (
                 <Marker
                   coordinate={summary.user_location}
@@ -799,14 +1221,16 @@ export default function DengueRiskScreen() {
               ) : null}
             </MapView>
 
-            {/* Floating Top Map Controls */}
             <View style={styles.floatingMapTypeRow}>
               {MAP_TYPES.map((opt) => {
                 const active = mapType === opt.type;
                 return (
                   <Pressable
                     key={opt.type}
-                    style={[styles.floatingMapTypeBtn, active && styles.floatingMapTypeBtnActive]}
+                    style={[
+                      styles.floatingMapTypeBtn,
+                      active && styles.floatingMapTypeBtnActive,
+                    ]}
                     onPress={() => setMapType(opt.type)}
                   >
                     <MaterialCommunityIcons
@@ -814,7 +1238,12 @@ export default function DengueRiskScreen() {
                       size={12}
                       color={active ? C.amber : C.sub}
                     />
-                    <Text style={[styles.floatingMapTypeBtnText, active && styles.floatingMapTypeBtnTextActive]}>
+                    <Text
+                      style={[
+                        styles.floatingMapTypeBtnText,
+                        active && styles.floatingMapTypeBtnTextActive,
+                      ]}
+                    >
                       {opt.label}
                     </Text>
                   </Pressable>
@@ -822,84 +1251,161 @@ export default function DengueRiskScreen() {
               })}
             </View>
 
-            {/* Compact Floating Recenter Button */}
-            <Pressable style={styles.floatingRecenterBtn} onPress={() => recenterMap(mapRef)}>
-              <MaterialCommunityIcons name="crosshairs-gps" size={12} color={C.amber} />
+            <Pressable
+              style={styles.floatingRecenterBtn}
+              onPress={() => recenterMap(mapRef)}
+            >
+              <MaterialCommunityIcons
+                name="crosshairs-gps"
+                size={12}
+                color={C.amber}
+              />
               <Text style={styles.floatingRecenterText}>{t("recenter")}</Text>
             </Pressable>
           </View>
 
-          {/* Legend */}
           <View style={styles.legendRow}>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: C.low }]} />
-              <Text style={styles.legendText}>{t("lowRisk")}</Text>
-            </View>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: C.moderate }]} />
-              <Text style={styles.legendText}>{t("moderate")}</Text>
-            </View>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: C.high }]} />
-              <Text style={styles.legendText}>{t("highRisk")}</Text>
-            </View>
+            {[
+              { color: C.low, label: t("lowRisk") },
+              { color: C.moderate, label: t("moderate") + " Risk" },
+              { color: C.high, label: t("highRisk") },
+            ].map((l) => (
+              <View key={l.label} style={styles.legendItem}>
+                <View
+                  style={[styles.legendDot, { backgroundColor: l.color }]}
+                />
+                <Text style={styles.legendText}>{l.label}</Text>
+              </View>
+            ))}
+          </View>
+
+          {/* Selected week summary strip */}
+          <View style={styles.summaryStrip}>
+            <Text style={styles.summaryStripLabel}>{t("weekSummary")}</Text>
+            <Text
+              style={[
+                styles.summaryStripValue,
+                { color: selectedRiskConfig.color },
+              ]}
+            >
+              {formatWeekLabel(selectedWeek, summary?.current_risk?.week_label)}{" "}
+              · {percentage(selectedWeekRisk?.risk_score)} ·{" "}
+              {selectedRiskConfig.label}
+            </Text>
           </View>
         </View>
 
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>{t("weekSummary")}</Text>
-          <Text style={styles.tipText}>
-            {formatWeekLabel(selectedWeek, summary?.current_risk?.week_label)}:{" "}
-            <Text style={{ color: getRiskColorConfig(selectedWeekRisk?.risk_level).color, fontWeight: "800" }}>
-              {percentage(selectedWeekRisk?.risk_score)}
-            </Text>{" "}
-            ({levelLabel(selectedWeekRisk?.risk_level)})
-          </Text>
-        </View>
-
-        {/* INTERACTIVE DEMO SIMULATOR BUTTON AT BOTTOM */}
+        {/* ── DEMO SIMULATOR CARD ── */}
         <Pressable
           style={styles.demoCard}
           onPress={() => navigation.navigate("DengueRiskDemo")}
         >
           <View style={styles.demoCardIconWrap}>
-            <MaterialCommunityIcons name="flask-outline" size={22} color={C.amber} />
+            <MaterialCommunityIcons
+              name="flask-outline"
+              size={22}
+              color={C.amber}
+            />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.demoCardTitle}>Dengue Risk Simulator (Demo Mode)</Text>
+            <Text style={styles.demoCardTitle}>
+              Dengue Risk Simulator (Demo Mode)
+            </Text>
             <Text style={styles.demoCardSub}>
-              Adjust temperature, humidity & rainfall to simulate risk zone changes.
+              Adjust temperature, humidity & rainfall to simulate risk zone
+              changes.
             </Text>
           </View>
-          <MaterialCommunityIcons name="chevron-right" size={20} color={C.sub} />
+          <MaterialCommunityIcons
+            name="chevron-right"
+            size={20}
+            color={C.amber}
+          />
         </Pressable>
       </ScrollView>
 
-      {/* PREMIUM HIGH-TECH AI SAFETY ASSISTANT FLOATING ACTION BUTTON */}
-      <Pressable style={styles.chatFab} onPress={openDengueChat}>
-        <View style={styles.chatFabIconCircle}>
-          <MaterialCommunityIcons name="robot-happy" size={22} color="#0D1117" />
-        </View>
-        <Text style={styles.chatFabText}>{t("aiAssistant")}</Text>
-      </Pressable>
+      {/* ── AI CHATBOT FAB ── */}
+      {/* ── AI CHATBOT FAB ── */}
+      <View pointerEvents="box-none" style={styles.fabWrap}>
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.fabPulse,
+            { opacity: pulseOpacity, transform: [{ scale: pulseScale }] },
+          ]}
+        />
+        <Animated.View style={{ transform: [{ scale: fabScale }] }}>
+          <Pressable
+            onPress={openDengueChat}
+            onPressIn={() =>
+              Animated.spring(fabScale, {
+                toValue: 0.94,
+                useNativeDriver: true,
+              }).start()
+            }
+            onPressOut={() =>
+              Animated.spring(fabScale, {
+                toValue: 1,
+                friction: 4,
+                useNativeDriver: true,
+              }).start()
+            }
+            accessibilityRole="button"
+            accessibilityLabel={t("aiAssistant")}
+          >
+            <LinearGradient
+              colors={["#FFC857", C.amber, "#E58E0F"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.fab}
+            >
+              <View style={styles.fabIconCircle}>
+                <MaterialCommunityIcons
+                  name="robot-happy"
+                  size={22}
+                  color={C.amber}
+                />
+                <View style={styles.fabOnlineDot} />
+              </View>
+              <View style={styles.fabTextCol}>
+                <Text style={styles.fabTitle}>{t("aiAssistant")}</Text>
+              </View>
+              <MaterialCommunityIcons
+                name="chevron-right"
+                size={20}
+                color={C.bg}
+              />
+            </LinearGradient>
+          </Pressable>
+        </Animated.View>
+      </View>
 
-      {/* FULLSCREEN MAP MODAL */}
-      <Modal visible={isFullscreenMap} animationType="slide" onRequestClose={() => setIsFullscreenMap(false)}>
+      {/* ── FULLSCREEN MAP MODAL ── */}
+      <Modal
+        visible={isFullscreenMap}
+        animationType="slide"
+        onRequestClose={() => setIsFullscreenMap(false)}
+      >
         <View style={styles.fullScreenModalContainer}>
-          {/* Header */}
           <View style={styles.fullScreenHeader}>
             <View style={{ flex: 1 }}>
               <Text style={styles.fullScreenTitle}>{t("mapTitle")}</Text>
               <Text style={styles.fullScreenSubTitle}>
-                Viewing: {formatWeekLabel(selectedWeek, summary?.current_risk?.week_label)}
+                Viewing:{" "}
+                {formatWeekLabel(
+                  selectedWeek,
+                  summary?.current_risk?.week_label,
+                )}
               </Text>
             </View>
-            <Pressable style={styles.closeModalBtn} onPress={() => setIsFullscreenMap(false)}>
-              <MaterialCommunityIcons name="close" size={22} color={C.text} />
+            <Pressable
+              style={styles.closeModalBtn}
+              onPress={() => setIsFullscreenMap(false)}
+            >
+              <MaterialCommunityIcons name="close" size={20} color={C.text} />
             </Pressable>
           </View>
 
-          {/* TOP BAR WEEK SELECTOR CHIPS */}
           <View style={styles.fullScreenWeekBar}>
             <ScrollView
               horizontal
@@ -909,7 +1415,10 @@ export default function DengueRiskScreen() {
               {formattedWeekList.map((item) => {
                 const itemConfig = getRiskColorConfig(item.risk_level);
                 const isActive = selectedWeek === item.week_label;
-                const userFriendlyWeek = formatWeekLabel(item.week_label, summary?.current_risk?.week_label);
+                const userFriendlyWeek = formatWeekLabel(
+                  item.week_label,
+                  summary?.current_risk?.week_label,
+                );
                 return (
                   <Pressable
                     key={`full-${item.week_label}`}
@@ -923,7 +1432,9 @@ export default function DengueRiskScreen() {
                     ]}
                   >
                     <Text style={styles.filterWeek}>{userFriendlyWeek}</Text>
-                    <Text style={[styles.filterRisk, { color: itemConfig.color }]}>
+                    <Text
+                      style={[styles.filterRisk, { color: itemConfig.color }]}
+                    >
                       {percentage(item.risk_score)}
                     </Text>
                   </Pressable>
@@ -932,9 +1443,7 @@ export default function DengueRiskScreen() {
             </ScrollView>
           </View>
 
-          {/* MAP CONTAINER WITH COMPACT INTERACTIVE CLIMATE HUD */}
           <View style={{ flex: 1, position: "relative" }}>
-            {/* FLOATING COMPACT INTERACTIVE CLIMATE HUD */}
             {summary?.weather ? (
               <View style={styles.floatingClimateHudWrapper}>
                 <ScrollView
@@ -942,124 +1451,90 @@ export default function DengueRiskScreen() {
                   showsHorizontalScrollIndicator={false}
                   contentContainerStyle={styles.floatingClimateHudRow}
                 >
-                  <Pressable
-                    style={[
-                      styles.compactClimatePill,
-                      activeClimateTip?.key === "temp" && styles.compactClimatePillActive,
-                    ]}
-                    onPress={() =>
-                      setActiveClimateTip(
-                        activeClimateTip?.key === "temp"
-                          ? null
-                          : {
-                              key: "temp",
-                              text: `Temperature: ${summary.weather.temperature_c?.toFixed(1)}°C — Ideal mosquito vector activity zone (25°C - 30°C).`,
-                            },
-                      )
-                    }
-                  >
-                    <MaterialCommunityIcons name="thermometer" size={13} color={C.amber} />
-                    <Text style={styles.compactClimateValue}>
-                      {summary.weather.temperature_c ? `${summary.weather.temperature_c.toFixed(1)}°C` : "--"}
-                    </Text>
-                  </Pressable>
-
-                  <Pressable
-                    style={[
-                      styles.compactClimatePill,
-                      activeClimateTip?.key === "humidity" && styles.compactClimatePillActive,
-                    ]}
-                    onPress={() =>
-                      setActiveClimateTip(
-                        activeClimateTip?.key === "humidity"
-                          ? null
-                          : {
-                              key: "humidity",
-                              text: `Humidity: ${Math.round(summary.weather.humidity_pct)}% — High humidity prolongs mosquito feeding lifespan.`,
-                            },
-                      )
-                    }
-                  >
-                    <MaterialCommunityIcons name="water-outline" size={13} color={C.amber} />
-                    <Text style={styles.compactClimateValue}>
-                      {summary.weather.humidity_pct ? `${Math.round(summary.weather.humidity_pct)}%` : "--"}
-                    </Text>
-                  </Pressable>
-
-                  <Pressable
-                    style={[
-                      styles.compactClimatePill,
-                      activeClimateTip?.key === "rain" && styles.compactClimatePillActive,
-                    ]}
-                    onPress={() =>
-                      setActiveClimateTip(
-                        activeClimateTip?.key === "rain"
-                          ? null
-                          : {
-                              key: "rain",
-                              text: `Current Rain: ${summary.weather.current_rain_mm_h?.toFixed(1) || 0} mm/h — Active rainfall can immediately increase water stagnation points.`,
-                            },
-                      )
-                    }
-                  >
-                    <MaterialCommunityIcons name="weather-pouring" size={13} color={C.amber} />
-                    <Text style={styles.compactClimateValue}>
-                      {hasNumber(summary.weather.current_rain_mm_h) ? `${summary.weather.current_rain_mm_h.toFixed(1)} mm/h` : "0.0 mm/h"}
-                    </Text>
-                  </Pressable>
-
-                  <Pressable
-                    style={[
-                      styles.compactClimatePill,
-                      activeClimateTip?.key === "rain7" && styles.compactClimatePillActive,
-                    ]}
-                    onPress={() =>
-                      setActiveClimateTip(
-                        activeClimateTip?.key === "rain7"
-                          ? null
-                          : {
-                              key: "rain7",
-                            text: `7-Day Rain Avg: ${summary.weather.rainfall_7day_avg?.toFixed(1) || 0} mm/day — Higher weekly rainfall average increases breeding site persistence.`,
-                            },
-                      )
-                    }
-                  >
-                    <MaterialCommunityIcons name="calendar-range-outline" size={13} color={C.amber} />
-                    <Text style={styles.compactClimateValue}>
-                      {hasNumber(summary.weather.rainfall_7day_avg) ? `${summary.weather.rainfall_7day_avg.toFixed(1)} mm/day` : "0.0 mm/day"}
-                    </Text>
-                  </Pressable>
-
-                  <Pressable
-                    style={[
-                      styles.compactClimatePill,
-                      activeClimateTip?.key === "todayRain" && styles.compactClimatePillActive,
-                    ]}
-                    onPress={() =>
-                      setActiveClimateTip(
-                      activeClimateTip?.key === "todayRain"
-                        ? null
-                        : {
-                            key: "todayRain",
-                            text: `Today's Rain: ${summary.weather.today_rain_mm?.toFixed(1) || 0} mm — Daily rainfall accumulation is a direct dengue risk amplifier.`,
-                          },
-                      )
-                    }
-                  >
-                    <MaterialCommunityIcons name="weather-rainy" size={13} color={C.amber} />
-                    <Text style={styles.compactClimateValue}>
-                      {hasNumber(summary.weather.today_rain_mm) ? `${summary.weather.today_rain_mm.toFixed(1)} mm` : "0.0 mm"}
-                    </Text>
-                  </Pressable>
+                  {[
+                    {
+                      key: "temp",
+                      icon: "thermometer",
+                      value: summary.weather.temperature_c
+                        ? `${summary.weather.temperature_c.toFixed(1)}°C`
+                        : "--",
+                      tip: `Temperature: ${summary.weather.temperature_c?.toFixed(1)}°C — Ideal mosquito vector activity zone (25°C - 30°C).`,
+                    },
+                    {
+                      key: "humidity",
+                      icon: "water-outline",
+                      value: summary.weather.humidity_pct
+                        ? `${Math.round(summary.weather.humidity_pct)}%`
+                        : "--",
+                      tip: `Humidity: ${Math.round(summary.weather.humidity_pct)}% — High humidity prolongs mosquito feeding lifespan.`,
+                    },
+                    {
+                      key: "rain",
+                      icon: "weather-pouring",
+                      value: hasNumber(summary.weather.current_rain_mm_h)
+                        ? `${summary.weather.current_rain_mm_h.toFixed(1)} mm/h`
+                        : "0.0 mm/h",
+                      tip: `Current Rain: ${summary.weather.current_rain_mm_h?.toFixed(1) || 0} mm/h — Active rainfall can immediately increase water stagnation.`,
+                    },
+                    {
+                      key: "rain7",
+                      icon: "calendar-range-outline",
+                      value: hasNumber(summary.weather.rainfall_7day_avg)
+                        ? `${summary.weather.rainfall_7day_avg.toFixed(1)} mm/d`
+                        : "0.0 mm/d",
+                      tip: `7-Day Rain Avg: ${summary.weather.rainfall_7day_avg?.toFixed(1) || 0} mm/day — Higher weekly rainfall average increases breeding site persistence.`,
+                    },
+                    {
+                      key: "todayRain",
+                      icon: "weather-rainy",
+                      value: hasNumber(summary.weather.today_rain_mm)
+                        ? `${summary.weather.today_rain_mm.toFixed(1)} mm`
+                        : "0.0 mm",
+                      tip: `Today's Rain: ${summary.weather.today_rain_mm?.toFixed(1) || 0} mm — Daily rainfall accumulation is a direct dengue risk amplifier.`,
+                    },
+                  ].map((pill) => (
+                    <Pressable
+                      key={pill.key}
+                      style={[
+                        styles.compactClimatePill,
+                        activeClimateTip?.key === pill.key &&
+                          styles.compactClimatePillActive,
+                      ]}
+                      onPress={() =>
+                        setActiveClimateTip(
+                          activeClimateTip?.key === pill.key
+                            ? null
+                            : { key: pill.key, text: pill.tip },
+                        )
+                      }
+                    >
+                      <MaterialCommunityIcons
+                        name={pill.icon}
+                        size={13}
+                        color={C.amber}
+                      />
+                      <Text style={styles.compactClimateValue}>
+                        {pill.value}
+                      </Text>
+                    </Pressable>
+                  ))}
                 </ScrollView>
-
-                {/* Interactive Tooltip Toast Banner */}
                 {activeClimateTip ? (
                   <View style={styles.climateTipToast}>
-                    <MaterialCommunityIcons name="lightbulb-on-outline" size={14} color={C.amber} />
-                    <Text style={styles.climateTipToastText}>{activeClimateTip.text}</Text>
+                    <MaterialCommunityIcons
+                      name="lightbulb-on-outline"
+                      size={14}
+                      color={C.amber}
+                    />
+                    <Text style={styles.climateTipToastText}>
+                      {activeClimateTip.text}
+                    </Text>
                     <Pressable onPress={() => setActiveClimateTip(null)}>
-                      <MaterialCommunityIcons name="close-circle" size={16} color={C.sub} />
+                      <MaterialCommunityIcons
+                        name="close-circle"
+                        size={16}
+                        color={C.sub}
+                      />
                     </Pressable>
                   </View>
                 ) : null}
@@ -1072,7 +1547,6 @@ export default function DengueRiskScreen() {
               initialRegion={initialRegion}
               mapType={mapType}
             >
-              {/* Translucent Ward Polygons */}
               {mapAreas.map((area) => {
                 const risk = areaRiskForWeek(area, selectedWeek);
                 const colors = riskStyle(risk.risk_level);
@@ -1086,8 +1560,6 @@ export default function DengueRiskScreen() {
                   />
                 );
               })}
-
-              {/* Custom Vector Badge Markers */}
               {mapAreas.map((area) => {
                 const risk = areaRiskForWeek(area, selectedWeek);
                 const riskCfg = getRiskColorConfig(risk.risk_level);
@@ -1096,16 +1568,21 @@ export default function DengueRiskScreen() {
                     key={`${area.area_id}-marker-full`}
                     coordinate={area.center}
                     title={`${area.area_name} (${riskCfg.label})`}
-                    description={`${percentage(risk.risk_score)} - ${formatWeekLabel(selectedWeek, summary?.current_risk?.week_label)}`}
+                    description={`${percentage(risk.risk_score)}`}
                   >
-                    <View style={[styles.customMarkerBadge, { backgroundColor: riskCfg.color }]}>
-                      <Text style={styles.customMarkerBadgeText}>{percentage(risk.risk_score)}</Text>
+                    <View
+                      style={[
+                        styles.customMarkerBadge,
+                        { backgroundColor: riskCfg.color },
+                      ]}
+                    >
+                      <Text style={styles.customMarkerBadgeText}>
+                        {percentage(risk.risk_score)}
+                      </Text>
                     </View>
                   </Marker>
                 );
               })}
-
-              {/* Pulsing GPS Dot */}
               {summary?.user_location ? (
                 <Marker
                   coordinate={summary.user_location}
@@ -1118,14 +1595,16 @@ export default function DengueRiskScreen() {
               ) : null}
             </MapView>
 
-            {/* Floating Map Type Controls inside Fullscreen View */}
             <View style={styles.floatingMapTypeRowFullScreen}>
               {MAP_TYPES.map((opt) => {
                 const active = mapType === opt.type;
                 return (
                   <Pressable
                     key={`full-${opt.type}`}
-                    style={[styles.floatingMapTypeBtn, active && styles.floatingMapTypeBtnActive]}
+                    style={[
+                      styles.floatingMapTypeBtn,
+                      active && styles.floatingMapTypeBtnActive,
+                    ]}
                     onPress={() => setMapType(opt.type)}
                   >
                     <MaterialCommunityIcons
@@ -1133,7 +1612,12 @@ export default function DengueRiskScreen() {
                       size={12}
                       color={active ? C.amber : C.sub}
                     />
-                    <Text style={[styles.floatingMapTypeBtnText, active && styles.floatingMapTypeBtnTextActive]}>
+                    <Text
+                      style={[
+                        styles.floatingMapTypeBtnText,
+                        active && styles.floatingMapTypeBtnTextActive,
+                      ]}
+                    >
                       {opt.label}
                     </Text>
                   </Pressable>
@@ -1142,10 +1626,16 @@ export default function DengueRiskScreen() {
             </View>
           </View>
 
-          {/* Compact Fullscreen Footer Recenter Button */}
           <View style={styles.fullScreenFooter}>
-            <Pressable style={styles.recenterButton} onPress={() => recenterMap(fullMapRef)}>
-              <MaterialCommunityIcons name="crosshairs-gps" size={13} color={C.amber} />
+            <Pressable
+              style={styles.recenterButton}
+              onPress={() => recenterMap(fullMapRef)}
+            >
+              <MaterialCommunityIcons
+                name="crosshairs-gps"
+                size={13}
+                color={C.amber}
+              />
               <Text style={styles.recenterText}>Recenter</Text>
             </Pressable>
           </View>
@@ -1155,245 +1645,376 @@ export default function DengueRiskScreen() {
   );
 }
 
+/* ───────────────────────────────── styles ───────────────────────────────── */
+
 const styles = StyleSheet.create({
-  screenContainer: {
-    flex: 1,
-    backgroundColor: C.bg,
-  },
-  screen: {
-    flex: 1,
-    backgroundColor: C.bg,
-  },
-  content: {
-    padding: 16,
-    paddingBottom: 110,
-    gap: 14,
-  },
+  // ── General layout ──
+  screenContainer: { flex: 1, backgroundColor: C.bg },
+  screen: { flex: 1, backgroundColor: C.bg },
+  content: { padding: 14, paddingBottom: 120, gap: 14 },
+
+  // ── Loading / Error ──
   centered: {
     flex: 1,
     backgroundColor: C.bg,
     justifyContent: "center",
     alignItems: "center",
-    padding: 20,
+    padding: 24,
+  },
+  loadingRing: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: C.surface,
+    borderWidth: 1,
+    borderColor: C.border,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 16,
+    shadowColor: C.amber,
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 6,
   },
   loadingText: {
-    marginTop: 12,
+    color: C.text,
+    fontSize: 15,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  loadingSubText: {
     color: C.sub,
-    fontSize: 14,
-    fontWeight: "600",
+    fontSize: 12,
+    marginTop: 6,
+    textAlign: "center",
+  },
+  errorIconWrap: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: C.highBg,
+    borderWidth: 1,
+    borderColor: C.high,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 16,
   },
   errorTitle: {
     color: C.text,
     fontSize: 20,
-    fontWeight: "700",
-    marginTop: 12,
+    fontWeight: "800",
     marginBottom: 8,
+    textAlign: "center",
   },
   errorText: {
     color: C.sub,
     textAlign: "center",
-    marginBottom: 16,
+    marginBottom: 20,
+    lineHeight: 20,
   },
   retryButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
     backgroundColor: C.amber,
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
     paddingVertical: 12,
-    borderRadius: 12,
+    borderRadius: 999,
+    shadowColor: C.amber,
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    elevation: 6,
   },
-  retryText: {
-    color: C.bg,
-    fontWeight: "800",
-  },
-  card: {
-    backgroundColor: C.surface,
-    borderWidth: 1,
-    borderColor: C.border,
-    borderRadius: 16,
-    padding: 16,
-    gap: 10,
-  },
+  retryText: { color: C.bg, fontWeight: "800", fontSize: 14 },
+
+  // ── HERO ──
   heroCard: {
     backgroundColor: C.surface,
+    borderRadius: 26,
     borderWidth: 1,
-    borderColor: C.border,
-    borderLeftWidth: 4,
-    borderRadius: 16,
-    padding: 16,
-    gap: 10,
+    padding: 18,
+    gap: 16,
+    minHeight: 380,
     overflow: "hidden",
-    position: "relative",
+    shadowColor: "#000",
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 10,
   },
-  watermarkContainer: {
-    position: "absolute",
-    right: -15,
-    bottom: -15,
-  },
-  watermarkImage: {
-    width: 140,
-    height: 140,
-    opacity: 0.12,
-  },
-  cardHeaderRow: {
+  heroAccentBar: { position: "absolute", top: 0, left: 0, right: 0, height: 3 },
+  heroBgImage: { borderRadius: 26 },
+
+  heroTopRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
     gap: 10,
   },
-  cardSubTitle: {
-    color: C.sub,
-    fontSize: 11,
-    fontWeight: "700",
-    letterSpacing: 0.8,
-  },
-  cardTitle: {
-    color: C.sub,
-    fontSize: 13,
-    fontWeight: "700",
-  },
-  areaName: {
-    color: C.text,
-    fontSize: 22,
+  heroLocationBlock: { flex: 1, gap: 4 },
+  heroEyebrow: {
+    color: C.subLight,
+    fontSize: 10,
     fontWeight: "800",
-    marginTop: 2,
+    letterSpacing: 1.4,
   },
-  locationPill: {
+  heroLocationPinRow: { flexDirection: "row", alignItems: "center", gap: 4 },
+  heroAreaName: {
+    color: C.text,
+    fontSize: 26,
+    fontWeight: "800",
+    letterSpacing: -0.6,
+    flexShrink: 1,
+  },
+  heroCoords: { color: C.sub, fontSize: 12, fontWeight: "500" },
+  heroBadge: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
-    marginTop: 4,
-  },
-  locationText: {
-    color: C.sub,
-    fontSize: 12,
-    fontWeight: "500",
-  },
-  statusBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
+    gap: 5,
     borderWidth: 1,
     borderRadius: 999,
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingVertical: 7,
   },
-  statusBadgeText: {
-    fontSize: 12,
-    fontWeight: "800",
-  },
-  riskMetricRow: {
-    flexDirection: "row",
-    alignItems: "baseline",
-    gap: 12,
-    marginTop: 6,
-  },
-  riskValue: {
-    fontSize: 36,
+  heroBadgeText: { color: C.bg, fontSize: 12, fontWeight: "900" },
+
+  heroScoreRow: { flexDirection: "row", alignItems: "flex-end" },
+  heroScoreText: {
+    fontSize: 76,
     fontWeight: "900",
+    letterSpacing: -4,
+    lineHeight: 80,
   },
-  riskMetricSub: {
-    gap: 2,
+  heroScorePct: {
+    fontSize: 28,
+    fontWeight: "800",
+    marginBottom: 10,
+    marginLeft: 2,
   },
-  riskMetricContainer: {
+  heroScoreMeta: { flex: 1, alignItems: "flex-end", gap: 8, marginBottom: 10 },
+  heroScoreSub: {
+    color: C.textSoft,
+    fontSize: 12,
+    fontWeight: "600",
+    textAlign: "right",
+  },
+  heroWeekChip: {
     flexDirection: "row",
     alignItems: "center",
-    borderRadius: 14,
+    gap: 5,
     borderWidth: 1,
-    padding: 12,
-    marginTop: 10,
-    gap: 12,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    backgroundColor: "rgba(8,12,18,0.55)",
   },
-  riskValueContainer: {
+  heroWeekChipText: { fontSize: 11, fontWeight: "800" },
+
+  // risk meter
+  meterWrap: { gap: 6 },
+  meterTrack: {
     flexDirection: "row",
-    alignItems: "baseline",
-    minWidth: 75,
-  },
-  riskValueText: {
-    fontSize: 36,
-    fontWeight: "900",
-    letterSpacing: -1,
-  },
-  riskPercentSign: {
-    fontSize: 14,
-    fontWeight: "800",
-    color: C.sub,
-    marginLeft: 1,
-  },
-  riskDivider: {
-    width: 1,
-    height: 42,
-    backgroundColor: C.border,
-  },
-  riskDetailsContainer: {
-    flex: 1,
+    height: 8,
+    borderRadius: 4,
+    overflow: "hidden",
     gap: 2,
   },
-  simulatedProgressBarContainer: {
-    height: 4,
-    backgroundColor: "rgba(255, 255, 255, 0.12)",
-    borderRadius: 2,
-    marginTop: 4,
-    overflow: "hidden",
+  meterSeg: { height: 8, opacity: 0.85 },
+  meterThumb: {
+    position: "absolute",
+    top: -3,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    marginLeft: -7,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 3,
   },
-  simulatedProgressBarFill: {
-    height: "100%",
-    borderRadius: 2,
-  },
-  riskMetricLabel: {
-    color: C.text,
-    fontSize: 13,
-    fontWeight: "700",
-  },
-  riskMetricWeek: {
-    color: C.sub,
-    fontSize: 12,
-  },
-  rowCards: {
+  meterLabels: { flexDirection: "row", justifyContent: "space-between" },
+  meterLabelText: { color: C.sub, fontSize: 10, fontWeight: "700" },
+
+  // ── Alert banner ──
+  alertBanner: {
     flexDirection: "row",
-    gap: 12,
-  },
-  smallCard: {
-    flex: 1,
-    backgroundColor: C.surface,
+    alignItems: "center",
+    gap: 10,
     borderRadius: 16,
+    padding: 12,
+    borderWidth: 1,
+  },
+  alertBannerCritical: {
+    backgroundColor: "rgba(255,69,58,0.16)",
+    borderColor: "rgba(255,69,58,0.55)",
+  },
+  alertBannerNormal: { backgroundColor: C.lowBg, borderColor: C.low },
+  alertIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: "rgba(0,0,0,0.25)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  alertText: {
+    flex: 1,
+    color: C.textSoft,
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: "600",
+  },
+
+  // ── Card shared ──
+  card: {
+    backgroundColor: C.surface,
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: 22,
+    padding: 16,
+    gap: 14,
+  },
+  cardTitleRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  cardTitleIconWrap: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: C.tealBg,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cardTitle: { flex: 1, color: C.text, fontSize: 14, fontWeight: "800" },
+  cardHint: { color: C.sub, fontSize: 11, fontWeight: "600" },
+
+  // ── Weather grid ──
+  weatherGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  weatherItem: {
+    flex: 1,
+    minWidth: "46%",
+    backgroundColor: C.surfaceHi,
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: C.border,
     padding: 14,
-    justifyContent: "space-between",
+    gap: 4,
   },
-  smallTitle: {
-    color: C.sub,
-    fontSize: 12,
-    fontWeight: "600",
+  weatherItemFull: {
+    minWidth: "100%",
+    flex: undefined,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
   },
-  smallValue: {
-    marginTop: 8,
-    fontSize: 22,
+  weatherIconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    marginBottom: 6,
+  },
+  weatherFullText: { flex: 1, gap: 2 },
+  weatherValue: {
+    fontSize: 20,
+    color: C.text,
     fontWeight: "800",
+    letterSpacing: -0.3,
   },
-  smallBadge: {
-    alignSelf: "flex-start",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    marginTop: 6,
+  weatherLabel: { fontSize: 11, color: C.sub, fontWeight: "600" },
+  weatherMiniBar: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: 3,
+    height: 26,
   },
-  smallBadgeText: {
-    fontSize: 11,
-    fontWeight: "700",
-  },
-  smallHint: {
+  weatherMiniBarItem: { width: 5, borderRadius: 2 },
+
+  // ── Section header ──
+  sectionHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 2,
     marginTop: 4,
-    color: C.sub,
-    fontSize: 12,
   },
+  sectionHeaderText: { color: C.text, fontSize: 17, fontWeight: "800" },
+  sectionHeaderLink: { flexDirection: "row", alignItems: "center", gap: 2 },
+  sectionHeaderLinkText: { color: C.amber, fontSize: 13, fontWeight: "700" },
+
+  // ── Active / Next week duo ──
+  duoRow: { flexDirection: "row", gap: 10 },
+  duoCard: {
+    flex: 1,
+    backgroundColor: C.surface,
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: 14,
+    gap: 6,
+  },
+  duoTitle: {
+    color: C.subLight,
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 0.4,
+  },
+  duoScore: { fontSize: 38, fontWeight: "900", letterSpacing: -1.5 },
+  duoBadge: {
+    alignSelf: "flex-start",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  duoBadgeText: { fontSize: 11, fontWeight: "800" },
+  duoWeek: { color: C.sub, fontSize: 11, fontWeight: "600", marginTop: 2 },
+
+  // ── Trend bars ──
+  trendRow: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    justifyContent: "space-between",
+    gap: 4,
+  },
+  trendCol: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: 5,
+  },
+  trendBar: { width: "78%", borderRadius: 6 },
+  trendPct: { color: C.sub, fontSize: 10, fontWeight: "800" },
+  trendLabel: { color: C.sub, fontSize: 10, fontWeight: "700" },
+
+  // ── History cards ──
+  historyRow: { flexDirection: "row", gap: 10 },
+  historyCard: {
+    flex: 1,
+    backgroundColor: C.surface,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: C.border,
+    padding: 12,
+    alignItems: "center",
+    gap: 4,
+  },
+  historyScore: { fontSize: 24, fontWeight: "900", letterSpacing: -0.5 },
+  historyLevel: { fontSize: 12, fontWeight: "800" },
+  historyWeek: {
+    color: C.sub,
+    fontSize: 10,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+
+  // ── Map card ──
   sectionTitle: {
     color: C.text,
-    fontSize: 15,
-    fontWeight: "700",
+    fontSize: 14,
+    fontWeight: "800",
+    flex: 1,
+    paddingRight: 8,
   },
   mapCard: {
     backgroundColor: C.surface,
-    borderRadius: 16,
+    borderRadius: 22,
     borderWidth: 1,
     borderColor: C.border,
     padding: 14,
@@ -1409,62 +2030,46 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 4,
     backgroundColor: C.surfaceHi,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: C.border,
+    borderColor: C.amberDim,
   },
-  expandButtonText: {
-    color: C.amber,
-    fontSize: 12,
-    fontWeight: "700",
-  },
-  filterRow: {
-    gap: 8,
-    paddingBottom: 4,
-  },
-  fullScreenFilterRow: {
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-  },
+  expandButtonText: { color: C.amber, fontSize: 12, fontWeight: "800" },
+
+  // ── Week filter chips ──
+  filterRow: { gap: 8, paddingBottom: 2 },
+  fullScreenFilterRow: { gap: 8, paddingHorizontal: 16, paddingVertical: 10 },
   filterChip: {
     borderWidth: 1,
     borderColor: C.border,
-    borderRadius: 10,
+    borderRadius: 14,
     paddingHorizontal: 12,
     paddingVertical: 8,
     backgroundColor: C.surfaceHi,
-    minWidth: 90,
+    minWidth: 92,
   },
-  filterWeek: {
-    color: C.text,
-    fontSize: 12,
-    fontWeight: "700",
-  },
-  filterRisk: {
-    marginTop: 2,
-    fontSize: 13,
-    fontWeight: "800",
-  },
+  filterWeek: { color: C.sub, fontSize: 11, fontWeight: "700" },
+  filterRisk: { marginTop: 2, fontSize: 14, fontWeight: "900" },
+
+  // ── Map container ──
   mapContainer: {
     position: "relative",
-    borderRadius: 14,
+    borderRadius: 18,
     overflow: "hidden",
     borderWidth: 1,
     borderColor: C.border,
   },
-  map: {
-    width: "100%",
-    height: 300,
-  },
+  map: { width: "100%", height: 300 },
+
+  // ── Floating map controls ──
   floatingMapTypeRow: {
     position: "absolute",
     top: 10,
     left: 10,
     flexDirection: "row",
-    backgroundColor: "rgba(22, 27, 34, 0.85)",
+    backgroundColor: "rgba(8, 12, 18, 0.88)",
     borderRadius: 10,
     borderWidth: 1,
     borderColor: C.border,
@@ -1475,7 +2080,7 @@ const styles = StyleSheet.create({
     bottom: 20,
     left: 16,
     flexDirection: "row",
-    backgroundColor: "rgba(22, 27, 34, 0.90)",
+    backgroundColor: "rgba(8, 12, 18, 0.92)",
     borderRadius: 10,
     borderWidth: 1,
     borderColor: C.border,
@@ -1485,39 +2090,29 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    paddingVertical: 6,
-    paddingHorizontal: 8,
+    paddingVertical: 7,
+    paddingHorizontal: 10,
   },
-  floatingMapTypeBtnActive: {
-    backgroundColor: C.amberDim + "66",
-  },
-  floatingMapTypeBtnText: {
-    color: C.sub,
-    fontSize: 10,
-    fontWeight: "700",
-  },
-  floatingMapTypeBtnTextActive: {
-    color: C.amber,
-  },
+  floatingMapTypeBtnActive: { backgroundColor: C.amberDim + "77" },
+  floatingMapTypeBtnText: { color: C.sub, fontSize: 10, fontWeight: "700" },
+  floatingMapTypeBtnTextActive: { color: C.amber },
   floatingRecenterBtn: {
     position: "absolute",
-    bottom: 8,
-    right: 8,
+    bottom: 10,
+    right: 10,
     flexDirection: "row",
     alignItems: "center",
-    gap: 3,
-    backgroundColor: "rgba(22, 27, 34, 0.90)",
-    borderRadius: 16,
-    paddingHorizontal: 9,
-    paddingVertical: 5,
+    gap: 4,
+    backgroundColor: "rgba(8, 12, 18, 0.90)",
+    borderRadius: 18,
+    paddingHorizontal: 11,
+    paddingVertical: 7,
     borderWidth: 1,
     borderColor: C.amber,
   },
-  floatingRecenterText: {
-    color: C.amber,
-    fontSize: 10,
-    fontWeight: "700",
-  },
+  floatingRecenterText: { color: C.amber, fontSize: 10, fontWeight: "800" },
+
+  // ── Markers ──
   customMarkerBadge: {
     paddingHorizontal: 7,
     paddingVertical: 3,
@@ -1525,172 +2120,152 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: "#FFFFFF",
     shadowColor: "#000",
-    shadowOpacity: 0.4,
-    shadowRadius: 4,
-    elevation: 5,
+    shadowOpacity: 0.5,
+    shadowRadius: 5,
+    elevation: 6,
   },
-  customMarkerBadgeText: {
-    color: "#FFFFFF",
-    fontSize: 10,
-    fontWeight: "900",
-  },
+  customMarkerBadgeText: { color: "#FFFFFF", fontSize: 10, fontWeight: "900" },
   userGpsPulseOuter: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: "rgba(30, 136, 229, 0.30)",
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "rgba(10, 132, 255, 0.25)",
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1,
-    borderColor: "rgba(30, 136, 229, 0.60)",
+    borderWidth: 1.5,
+    borderColor: "rgba(10, 132, 255, 0.55)",
   },
   userGpsDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: "#1E88E5",
-    borderWidth: 1.5,
+    width: 11,
+    height: 11,
+    borderRadius: 6,
+    backgroundColor: "#0A84FF",
+    borderWidth: 2,
     borderColor: "#FFFFFF",
   },
+
+  // ── Legend + summary strip ──
   legendRow: {
     flexDirection: "row",
     justifyContent: "space-around",
-    paddingTop: 4,
+    paddingTop: 2,
   },
-  legendItem: {
+  legendItem: { flexDirection: "row", alignItems: "center", gap: 6 },
+  legendDot: { width: 9, height: 9, borderRadius: 5 },
+  legendText: { color: C.subLight, fontSize: 11, fontWeight: "600" },
+  summaryStrip: {
+    backgroundColor: C.surfaceHi,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: C.border,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    gap: 3,
+  },
+  summaryStripLabel: { color: C.sub, fontSize: 11, fontWeight: "700" },
+  summaryStripValue: { fontSize: 13, fontWeight: "800" },
+
+  // ── Demo card ──
+  demoCard: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    backgroundColor: C.surface,
+    borderWidth: 1,
+    borderColor: C.amberDim,
+    borderRadius: 22,
+    padding: 16,
+    gap: 12,
   },
-  legendDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+  demoCardIconWrap: {
+    width: 46,
+    height: 46,
+    borderRadius: 16,
+    backgroundColor: C.amberGlow,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: C.amberDim,
   },
-  legendText: {
-    color: C.sub,
+  demoCardTitle: { color: C.text, fontSize: 14, fontWeight: "800" },
+  demoCardSub: {
+    color: C.subLight,
     fontSize: 12,
-    fontWeight: "600",
+    marginTop: 3,
+    lineHeight: 17,
   },
-  tipText: {
-    color: C.text,
-    lineHeight: 20,
-    fontSize: 13,
-  },
-  chatFab: {
+
+  // ── FAB ──
+  fabWrap: {
     position: "absolute",
     right: 16,
     bottom: 24,
+    alignItems: "flex-end",
+  },
+  fabPulse: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: 999,
+    backgroundColor: C.amber,
+  },
+  fab: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-    backgroundColor: C.amber,
+    gap: 10,
     borderRadius: 999,
+    paddingLeft: 8,
+    paddingRight: 14,
+    paddingVertical: 8,
     borderWidth: 1,
-    borderColor: "#FFE082",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    borderColor: "rgba(255,255,255,0.35)",
     shadowColor: C.amber,
-    shadowOpacity: 0.45,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 10,
+    shadowOpacity: 0.55,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 14,
   },
-  chatFabIconCircle: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: "rgba(13, 17, 23, 0.15)",
+  fabIconCircle: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: C.bg,
     alignItems: "center",
     justifyContent: "center",
   },
-  chatFabText: {
-    color: "#0D1117",
+  fabOnlineDot: {
+    position: "absolute",
+    right: 0,
+    bottom: 0,
+    width: 11,
+    height: 11,
+    borderRadius: 6,
+    backgroundColor: C.low,
+    borderWidth: 2,
+    borderColor: C.amber,
+  },
+  fabTextCol: { gap: 1 },
+  fabTitle: {
+    color: C.bg,
     fontSize: 13,
     fontWeight: "900",
-    letterSpacing: 0.3,
+    letterSpacing: 0.2,
   },
-  weatherGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 10,
-    marginTop: 4,
-  },
-  weatherItem: {
-    flex: 1,
-    minWidth: "45%",
-    backgroundColor: C.surfaceHi,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: C.border,
-    padding: 10,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
-  iconCircle: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: C.surface,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: C.border,
-  },
-  weatherLabel: {
-    fontSize: 11,
-    color: C.sub,
-    fontWeight: "600",
-  },
-  weatherValue: {
-    fontSize: 14,
-    color: C.text,
-    fontWeight: "800",
-  },
-  alertBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    borderRadius: 12,
-    padding: 12,
-    borderWidth: 1,
-    marginTop: 4,
-  },
-  alertBannerCritical: {
-    backgroundColor: C.highBg,
-    borderColor: C.high,
-  },
-  alertBannerNormal: {
-    backgroundColor: C.lowBg,
-    borderColor: C.low,
-  },
-  alertText: {
-    flex: 1,
-    color: C.text,
-    fontSize: 12,
-    lineHeight: 16,
-    fontWeight: "600",
-  },
-  fullScreenModalContainer: {
-    flex: 1,
-    backgroundColor: C.bg,
-  },
+
+  // ── Fullscreen modal ──
+  fullScreenModalContainer: { flex: 1, backgroundColor: C.bg },
   fullScreenHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     padding: 16,
-    paddingTop: Platform.OS === "ios" ? 50 : 16,
+    paddingTop: Platform.OS === "ios" ? 52 : 16,
     backgroundColor: C.surface,
     borderBottomWidth: 1,
     borderBottomColor: C.border,
   },
-  fullScreenTitle: {
-    color: C.text,
-    fontSize: 18,
-    fontWeight: "800",
-  },
+  fullScreenTitle: { color: C.text, fontSize: 18, fontWeight: "800" },
   fullScreenSubTitle: {
     color: C.amber,
     fontSize: 12,
@@ -1702,122 +2277,72 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: C.border,
   },
+  fullScreenFooter: { position: "absolute", bottom: 22, right: 16 },
+  closeModalBtn: { padding: 7, backgroundColor: C.surfaceHi, borderRadius: 20 },
+  recenterButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: "rgba(8, 12, 18, 0.92)",
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: C.amber,
+  },
+  recenterText: { color: C.amber, fontWeight: "800", fontSize: 11 },
+
+  // ── Floating climate HUD (fullscreen map) ──
   floatingClimateHudWrapper: {
     position: "absolute",
-    top: 10,
+    top: 12,
     left: 10,
     right: 10,
     zIndex: 10,
     gap: 6,
   },
-  floatingClimateHudRow: {
-    gap: 6,
-    alignItems: "center",
-  },
+  floatingClimateHudRow: { gap: 6, alignItems: "center" },
   compactClimatePill: {
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
-    backgroundColor: "rgba(22, 27, 34, 0.92)",
+    backgroundColor: "rgba(8, 12, 18, 0.92)",
     borderWidth: 1,
     borderColor: C.border,
     borderRadius: 20,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingHorizontal: 11,
+    paddingVertical: 6,
   },
   compactClimatePillActive: {
     borderColor: C.amber,
-    backgroundColor: "rgba(122, 82, 0, 0.50)",
+    backgroundColor: "rgba(122, 74, 0, 0.55)",
   },
-  compactClimateValue: {
-    color: C.text,
-    fontSize: 11,
-    fontWeight: "700",
-  },
+  compactClimateValue: { color: C.text, fontSize: 11, fontWeight: "700" },
   climateTipToast: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    backgroundColor: "rgba(28, 33, 40, 0.95)",
+    backgroundColor: "rgba(17, 23, 32, 0.97)",
     borderWidth: 1,
     borderColor: C.amber,
-    borderRadius: 12,
+    borderRadius: 14,
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: 9,
     shadowColor: "#000",
-    shadowOpacity: 0.4,
-    shadowRadius: 6,
-    elevation: 6,
+    shadowOpacity: 0.5,
+    shadowRadius: 8,
+    elevation: 7,
   },
   climateTipToastText: {
     flex: 1,
-    color: C.text,
+    color: C.textSoft,
     fontSize: 11,
-    lineHeight: 15,
+    lineHeight: 16,
     fontWeight: "600",
   },
-  closeModalBtn: {
-    padding: 6,
-    backgroundColor: C.surfaceHi,
-    borderRadius: 20,
-  },
-  fullScreenFooter: {
-    position: "absolute",
-    bottom: 20,
-    right: 16,
-  },
-  recenterButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    backgroundColor: "rgba(22, 27, 34, 0.92)",
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderWidth: 1,
-    borderColor: C.amber,
-  },
-  recenterText: {
-    color: C.amber,
-    fontWeight: "800",
-    fontSize: 11,
-  },
-  demoCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: C.surface,
-    borderWidth: 1,
-    borderColor: C.amberDim + "88",
-    borderRadius: 16,
-    padding: 14,
-    gap: 12,
-    marginTop: 4,
-  },
-  demoCardIconWrap: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: C.amberDim + "44",
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: C.amber,
-  },
-  demoCardTitle: {
-    color: C.text,
-    fontSize: 14,
-    fontWeight: "800",
-  },
-  demoCardSub: {
-    color: C.sub,
-    fontSize: 12,
-    marginTop: 2,
-  },
-  headerRightContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
+
+  // ── Header right ──
+  headerRightContainer: { flexDirection: "row", alignItems: "center", gap: 8 },
   langBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -1829,20 +2354,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
-  langBtnActive: {
-    borderColor: C.amber,
-  },
-  langBtnText: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: C.sub,
-  },
+  langBtnActive: { borderColor: C.amber },
+  langBtnText: { fontSize: 11, fontWeight: "700", color: C.sub },
   headerBadge: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    borderColor: "rgba(57, 213, 198, 0.33)",
-    backgroundColor: "rgba(57, 213, 198, 0.12)",
+    borderColor: C.teal + "55",
+    backgroundColor: C.tealBg,
     borderWidth: 1,
     borderRadius: 20,
     paddingVertical: 4,
@@ -1852,12 +2371,12 @@ const styles = StyleSheet.create({
     width: 5,
     height: 5,
     borderRadius: 3,
-    backgroundColor: "#39D5C6",
+    backgroundColor: C.teal,
   },
   headerBadgeText: {
     fontSize: 9,
     fontWeight: "800",
-    color: "#39D5C6",
+    color: C.teal,
     letterSpacing: 1.2,
   },
 });

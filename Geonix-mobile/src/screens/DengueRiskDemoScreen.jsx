@@ -630,14 +630,6 @@ export default function DengueRiskDemoScreen() {
 
         {/* 4. REAL-TIME THREAT METRICS */}
         <View style={[styles.heroCard, { borderLeftColor: activeSimulatedWard.config.color }]}>
-          {/* Transparent Mosquito Watermark */}
-          <View style={styles.watermarkContainer}>
-            <Image
-              source={require("../../assets/mosquito.png")}
-              style={styles.watermarkImage}
-              resizeMode="contain"
-            />
-          </View>
           <Text style={styles.cardSectionTitle}>4. Active Simulation Dashboard</Text>
           <View style={styles.summaryBar}>
             <View style={styles.summaryStatItem}>
