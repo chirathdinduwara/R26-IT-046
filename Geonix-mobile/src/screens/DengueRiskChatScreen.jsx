@@ -213,7 +213,7 @@ export default function DengueRiskChatScreen({ route }) {
     setLoading(true);
 
     try {
-      const baseUrl = await resolveApiBaseUrl();
+      // const baseUrl = await resolveApiBaseUrl();
       const history = messages
         .filter((m) => m.id !== "welcome")
         .map((m) => ({
@@ -221,16 +221,20 @@ export default function DengueRiskChatScreen({ route }) {
           text: m.text,
         }));
 
+      const baseUrl = "https://r26-it-046-production-685e.up.railway.app";
+
       const response = await fetch(`${baseUrl}/dengue/chat`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
+
         body: JSON.stringify({
           message: prompt,
           history: history,
         }),
       });
+      console.log("FULL URL:", `${baseUrl}/dengue/chat`);
 
       if (!response.ok) {
         throw new Error("Failed to get chat response");
