@@ -221,7 +221,7 @@ export default function DengueRiskChatScreen({ route }) {
           text: m.text,
         }));
 
-      const baseUrl = "https://r26-it-046-production-685e.up.railway.app";
+      const baseUrl = process.env.EXPO_PUBLIC_DENGUE_API_URL;
 
       const response = await fetch(`${baseUrl}/dengue/chat`, {
         method: "POST",
