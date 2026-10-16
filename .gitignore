@@ -4,7 +4,6 @@ __pycache__/
 *$py.class
 .venv/
 venv/
-.env
 paddy-advisory/__pycache__/
 # Dependencies
 */node_modules/
@@ -12,8 +11,6 @@ paddy-advisory/__pycache__/
 */android/
 */.expo/
 # Environment variables
-.env
-.env.local
 
 # Build outputs
 dist/
@@ -29,7 +26,8 @@ yarn-debug.log*
 Thumbs.db
 
 # IDE
-.vscode/
 .idea/
 
 */eas.json
+config.bat
+node_modules
