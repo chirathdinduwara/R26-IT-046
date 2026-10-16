@@ -5,7 +5,7 @@ __pycache__/
 .venv/
 venv/
 .env
-
+paddy-advisory/__pycache__/
 # Dependencies
 */node_modules/
 */package-lock.json

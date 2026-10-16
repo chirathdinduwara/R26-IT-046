@@ -2,6 +2,10 @@
 import json
 import os
 import re
+import time
+import random
+
+from google.genai import errors
 
 from dotenv import load_dotenv
 
@@ -113,10 +117,32 @@ priority_level. Keep each advisory language under 140 words, each AI insight
 under 70 words, and each priority action under 25 words.
 """
 
-        response = client.models.generate_content(
-            model=model_name,
-            contents=prompt,
-        )
+        max_attempts = 4
+
+        for attempt in range(max_attempts):
+            try:
+                response = client.models.generate_content(
+                    model=model_name,
+                    contents=prompt,
+                )
+                break
+
+            except errors.ServerError as error:
+                if error.code not in (500, 503, 504):
+                    raise
+
+                if attempt == max_attempts - 1:
+                    raise
+
+                wait_time = min(5 * (2 ** attempt), 20)
+                wait_time += random.uniform(0, 2)
+
+                print(
+                    f"Gemini server busy ({error.code}). "
+                    f"Retrying in {wait_time:.1f} seconds..."
+                )
+
+                time.sleep(wait_time)
 
         text = (response.text or "").strip()
         text = re.sub(r"^```json\s*", "", text)
