@@ -22,6 +22,7 @@ const HEADER = {
 };
 
 const baseHeader = {
+  freezeOnBlur: false,
   headerStyle: {
     backgroundColor: HEADER.bg,
   },

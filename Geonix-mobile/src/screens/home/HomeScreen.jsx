@@ -10,36 +10,41 @@ import {
   Platform,
   Animated,
 } from "react-native";
-import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
+import { MaterialCommunityIcons, Ionicons, Feather } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
+import { LinearGradient } from "expo-linear-gradient";
 import TopWeather from "../../components/HomeScreen/TopWeather";
 
 const { width } = Dimensions.get("window");
 
-// ── Palette (matches Settings + Stack) ───────────────────────────────────────
+// ── Palette (matches Settings + Theme) ───────────────────────────────────────
 const C = {
   bg: "#0D1117",
   surface: "#161B22",
   surfaceHi: "#21262D",
   border: "#30363D",
+  borderGlow: "rgba(240, 165, 0, 0.35)",
   text: "#E6EDF3",
   sub: "#8B949E",
   muted: "#484F58",
   amber: "#F0A500",
   amberDim: "#7A5200",
   green: "#3FB950",
+  teal: "#39D5C6",
+  blue: "#1E90FF",
+  cyan: "#29B6F6",
+  danger: "#FF7043",
 };
 
 const NAV_ITEMS = [
   {
     id: "1",
     title: "Flood Map",
-    subtitle: "Live city-wide flood prediction",
+    subtitle: "Live City-wide flood prediction",
     route: "FloodMap",
     icon: "water",
     accent: "#1E90FF",
-    dimBg: "#0A1929",
-    tag: "LIVE",
+    gradient: ["#0C2540", "#081626"],
     tagColor: "#3FB950",
   },
   {
@@ -49,18 +54,17 @@ const NAV_ITEMS = [
     route: "FloodMapDivision",
     icon: "map-marker-radius",
     accent: "#29B6F6",
-    dimBg: "#051520",
+    gradient: ["#07293D", "#061824"],
     tag: null,
   },
   {
     id: "3",
     title: "Dengue Warning",
-    subtitle: "Outbreak zones & risk alerts",
+    subtitle: "Outbrake Zones & Risk Alerts",
     route: "DengueWarning",
     icon: "bug",
     accent: "#FF7043",
-    dimBg: "#1A0A05",
-    tag: "ALERT",
+    gradient: ["#33150C", "#1D0B06"],
     tagColor: "#FF7043",
   },
   {
@@ -70,27 +74,27 @@ const NAV_ITEMS = [
     route: "PaddyAdvisory",
     icon: "sprout",
     accent: "#66BB6A",
-    dimBg: "#071A09",
+    gradient: ["#0F2D14", "#081A0B"],
     tag: null,
   },
   {
     id: "5",
     title: "Safe Navigation",
-    subtitle: "Route safety during flood events",
+    subtitle: "Safest routes during floods and other hazards",
     route: "SafeNavigation",
     icon: "shield-check",
     accent: "#FFD54F",
-    dimBg: "#1A1200",
-    tag: null,
+    gradient: ["#2E2207", "#1A1303"],
+    tagColor: "#FFD54F",
   },
   {
     id: "6",
     title: "Safe Navigation Demo",
-    subtitle: "Manual weather, traffic, and flood point simulation",
+    subtitle: "Simulated flood and hazard conditions",
     route: "SafeNavigationDemo",
     icon: "flask-outline",
     accent: "#FFB74D",
-    dimBg: "#1E1306",
+    gradient: ["#301E0A", "#1A1005"],
     tag: "DEMO",
     tagColor: "#FFB74D",
   },
@@ -100,68 +104,94 @@ const NAV_ITEMS = [
 function NavCard({ item, onPress, index }) {
   return (
     <TouchableOpacity
-      style={[styles.card, { backgroundColor: item.dimBg }]}
+      style={styles.cardWrapper}
       onPress={onPress}
-      activeOpacity={0.78}
+      activeOpacity={0.82}
     >
-      {/* Left accent rail */}
-      <View style={[styles.accentRail, { backgroundColor: item.accent }]} />
-
-      {/* Icon */}
-      <View
-        style={[
-          styles.iconWrap,
-          {
-            backgroundColor: item.accent + "1A",
-            borderColor: item.accent + "33",
-          },
-        ]}
+      <LinearGradient
+        colors={item.gradient}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.card}
       >
-        <MaterialCommunityIcons
-          name={item.icon}
-          size={24}
-          color={item.accent}
+        {/* Subtle accent top rail */}
+        <View
+          style={[styles.cardAccentBar, { backgroundColor: item.accent }]}
         />
-      </View>
 
-      {/* Text block */}
-      <View style={styles.cardBody}>
-        <View style={styles.cardTitleRow}>
-          <Text style={styles.cardTitle}>{item.title}</Text>
-          {item.tag && (
-            <View
-              style={[
-                styles.tag,
-                {
-                  backgroundColor: (item.tagColor ?? item.accent) + "22",
-                  borderColor: (item.tagColor ?? item.accent) + "55",
-                },
-              ]}
-            >
-              {item.tag === "LIVE" && (
-                <View
-                  style={[
-                    styles.tagPulse,
-                    { backgroundColor: item.tagColor ?? item.accent },
-                  ]}
-                />
-              )}
-              <Text
+        {/* Ambient Corner Glow */}
+        <View
+          style={[
+            styles.cardGlowCircle,
+            { backgroundColor: item.accent + "18" },
+          ]}
+        />
+
+        {/* Icon Container with double glow border */}
+        <View
+          style={[
+            styles.iconWrap,
+            {
+              backgroundColor: item.accent + "1A",
+              borderColor: item.accent + "4D",
+            },
+          ]}
+        >
+          <MaterialCommunityIcons
+            name={item.icon}
+            size={24}
+            color={item.accent}
+          />
+        </View>
+
+        {/* Text Body */}
+        <View style={styles.cardBody}>
+          <View style={styles.cardTitleRow}>
+            <Text style={styles.cardTitle}>{item.title}</Text>
+            {item.tag && (
+              <View
                 style={[
-                  styles.tagText,
-                  { color: item.tagColor ?? item.accent },
+                  styles.tag,
+                  {
+                    backgroundColor: (item.tagColor ?? item.accent) + "22",
+                    borderColor: (item.tagColor ?? item.accent) + "55",
+                  },
                 ]}
               >
-                {item.tag}
-              </Text>
-            </View>
-          )}
+                {item.tag === "LIVE" && (
+                  <View
+                    style={[
+                      styles.tagPulse,
+                      { backgroundColor: item.tagColor ?? item.accent },
+                    ]}
+                  />
+                )}
+                <Text
+                  style={[
+                    styles.tagText,
+                    { color: item.tagColor ?? item.accent },
+                  ]}
+                >
+                  {item.tag}
+                </Text>
+              </View>
+            )}
+          </View>
+          <Text style={styles.cardSub} numberOfLines={2}>
+            {item.subtitle}
+          </Text>
         </View>
-        <Text style={styles.cardSub}>{item.subtitle}</Text>
-      </View>
 
-      {/* Chevron */}
-      <Ionicons name="chevron-forward" size={16} color={C.muted} />
+        {/* Chevron Button */}
+        <View style={styles.chevronWrap}>
+          <Ionicons
+            name="arrow-forward-circle"
+            size={22}
+            color={item.accent}
+            style={{ opacity: 0.85 }}
+          />
+        </View>
+      </LinearGradient>
     </TouchableOpacity>
   );
 }
@@ -175,13 +205,13 @@ export default function HomeScreen() {
     const pulse = Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
-          toValue: 0.25,
-          duration: 800,
+          toValue: 0.3,
+          duration: 900,
           useNativeDriver: true,
         }),
         Animated.timing(pulseAnim, {
           toValue: 1,
-          duration: 800,
+          duration: 900,
           useNativeDriver: true,
         }),
       ])
@@ -194,58 +224,63 @@ export default function HomeScreen() {
     <View style={styles.screen}>
       <StatusBar barStyle="light-content" backgroundColor={C.bg} />
 
-      {/* ── Header ──────────────────────────────────────────────────────── */}
-      <View style={styles.header}>
-        {/* Grid texture overlay — pure View dots */}
-        <View style={styles.headerGrid} pointerEvents="none">
-          {Array.from({ length: 30 }).map((_, i) => (
-            <View key={i} style={styles.gridDot} />
-          ))}
-        </View>
+      {/* ── Modern App Header ────────────────────────────────────────────── */}
+      <LinearGradient
+        colors={["#1B222D", "#131820", "#0D1117"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={styles.header}
+      >
+        {/* Subtle Ambient Decorative Circles */}
+        <View style={styles.ambientGlow} pointerEvents="none" />
 
         <View style={styles.headerContent}>
           <View style={styles.headerMeta}>
             <View style={styles.headerMetaRow}>
-              <MaterialCommunityIcons
-                name="map-marker"
-                size={10}
-                color={C.amber}
-              />
-              <Text style={styles.headerEyebrow}>COLOMBO DISTRICT · LK</Text>
+              <View style={styles.locIconPill}>
+                <Text style={styles.headerEyebrow}>COLOMBO DRISTRICT - SRI LANKA</Text>
+              </View>
             </View>
             <Text style={styles.headerTitle}>Geonix Mobile</Text>
           </View>
 
-          {/* Live badge */}
+          {/* Live System Badge */}
           <View style={styles.liveBadge}>
             <Animated.View style={[styles.liveDot, { opacity: pulseAnim }]} />
             <Text style={styles.liveBadgeText}>LIVE</Text>
           </View>
         </View>
 
-        {/* Amber bottom border */}
+        {/* Ambient golden divider */}
         <View style={styles.headerBorder} />
-      </View>
+      </LinearGradient>
 
-      {/* ── Body ─────────────────────────────────────────────────────────── */}
+      {/* ── Scrollable Body ─────────────────────────────────────────────── */}
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scroll}
       >
-        {/* Weather widget */}
-        <View style={styles.weatherWrap}>
-          <TopWeather />
-        </View>
+        {/* Weather & Location Glass Widget */}
+        <LinearGradient
+          colors={["rgba(33, 38, 45, 0.9)", "rgba(22, 27, 34, 0.95)"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.weatherWrap}
+        >
 
-        {/* Section row */}
+          <View style={styles.weatherComponentWrapper}>
+            <TopWeather />
+          </View>
+        </LinearGradient>
+
+        {/* Section Header */}
         <View style={styles.sectionRow}>
           <View style={styles.sectionAccent} />
           <Text style={styles.sectionLabel}>SERVICES</Text>
           <View style={styles.sectionLine} />
-          <Text style={styles.sectionCount}>{NAV_ITEMS.length}</Text>
         </View>
 
-        {/* Cards */}
+        {/* Navigation Cards */}
         {NAV_ITEMS.map((item, idx) => (
           <NavCard
             key={item.id}
@@ -255,7 +290,7 @@ export default function HomeScreen() {
           />
         ))}
 
-        <View style={{ height: 36 }} />
+        <View style={{ height: 32 }} />
       </ScrollView>
     </View>
   );
@@ -270,63 +305,58 @@ const styles = StyleSheet.create({
 
   // ── Header ──────────────────────────────────────────────────────────────────
   header: {
-    backgroundColor: C.surface,
-    paddingTop: Platform.OS === "ios" ? 58 : 45,
+    paddingTop: Platform.OS === "ios" ? 54 : 42,
     paddingBottom: 0,
     overflow: "hidden",
-    borderBottomWidth: 0,
+    position: "relative",
   },
-
-  // Dot-grid texture
-  headerGrid: {
+  ambientGlow: {
     position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    flexDirection: "row",
-    flexWrap: "wrap",
-    paddingTop: 16,
-    paddingHorizontal: 12,
-    gap: (width - 24) / 30 - 2,
-    opacity: 0.18,
+    top: -40,
+    right: -40,
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    backgroundColor: C.amber + "12",
   },
-  gridDot: {
-    width: 2,
-    height: 2,
-    borderRadius: 1,
-    backgroundColor: C.amber,
-    margin: 9,
-  },
-
   headerContent: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-end",
     paddingHorizontal: 20,
-    paddingBottom: 18,
+    paddingBottom: 16,
   },
   headerMeta: {
-    gap: 4,
+    gap: 3,
+    flex: 1,
   },
   headerMetaRow: {
     flexDirection: "row",
     alignItems: "center",
+  },
+  locIconPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: C.amber + "1A",
+    borderColor: C.amber + "33",
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingVertical: 3,
+    paddingHorizontal: 8,
     gap: 5,
   },
   headerEyebrow: {
     fontSize: 9,
     fontWeight: "800",
     color: C.amber,
-    letterSpacing: 2.5,
+    letterSpacing: 1.5,
   },
   headerTitle: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: "800",
     color: C.text,
-    lineHeight: 36,
     letterSpacing: -0.5,
-    marginTop: 4,
+    marginTop: 6,
   },
 
   // Live badge
@@ -334,13 +364,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    backgroundColor: C.green + "15",
+    backgroundColor: C.green + "1A",
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: C.green + "40",
-    paddingVertical: 6,
-    paddingHorizontal: 11,
-    marginBottom: 4,
+    borderColor: C.green + "4D",
+    paddingVertical: 5,
+    paddingHorizontal: 12,
+    marginBottom: 6,
   },
   liveDot: {
     width: 7,
@@ -352,111 +382,111 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: "800",
     color: C.green,
-    letterSpacing: 1.5,
+    letterSpacing: 1.2,
   },
 
-  // Amber bottom line
+  // Golden accent bottom line
   headerBorder: {
     height: 2,
     backgroundColor: C.amber,
-    opacity: 0.7,
+    opacity: 0.65,
   },
 
   // ── Scroll ───────────────────────────────────────────────────────────────────
   scroll: {
-    paddingHorizontal: 14,
+    paddingHorizontal: 16,
     paddingTop: 16,
   },
 
   // Weather wrapper
-weatherWrap: {
-  borderRadius: 24,
-  overflow: "hidden",
-  marginBottom: 16,
-  backgroundColor: "rgba(255, 255, 255, 0.10)",
-  borderWidth: 1,
-  borderColor: "rgba(255, 255, 255, 0.18)",
-  shadowColor: "#000",
-  shadowOffset: {
-    width: 0,
-    height: 10,
+  weatherWrap: {
+    borderRadius: 20,
+    overflow: "hidden",
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: C.border,
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 6,
   },
-  shadowOpacity: 0.25,
-  shadowRadius: 20,
-  elevation: 10,
-  paddingHorizontal: 20,
-  paddingVertical: 14,
-},
-
+  weatherComponentWrapper: {
+    paddingVertical: 4,
+  },
   // Section divider
   sectionRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    marginTop: 20,
-    marginBottom: 10,
-    marginLeft: 2,
+    marginTop: 12,
+    marginBottom: 14,
   },
   sectionAccent: {
-    width: 3,
-    height: 12,
+    width: 3.5,
+    height: 14,
     borderRadius: 2,
     backgroundColor: C.amber,
   },
   sectionLabel: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: "800",
-    color: C.amber,
-    letterSpacing: 2.5,
+    color: C.text,
+    letterSpacing: 1.8,
   },
   sectionLine: {
     flex: 1,
     height: 1,
     backgroundColor: C.border,
   },
-  sectionCount: {
-    fontSize: 10,
-    fontWeight: "700",
-    color: C.muted,
-    letterSpacing: 0.5,
-  },
 
   // ── Card ─────────────────────────────────────────────────────────────────────
+  cardWrapper: {
+    marginBottom: 11,
+    borderRadius: 16,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: C.border,
+    shadowColor: "#000",
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
+  },
   card: {
     flexDirection: "row",
     alignItems: "center",
-    borderRadius: 14,
-    marginBottom: 8,
-    paddingVertical: 13,
-    paddingRight: 14,
-    paddingLeft: 0,
-    gap: 12,
-    borderWidth: 1,
-    borderColor: C.border,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    gap: 13,
+    position: "relative",
     overflow: "hidden",
-    shadowColor: "#000",
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 4,
   },
-
-  accentRail: {
-    width: 3,
-    alignSelf: "stretch",
-    borderRadius: 0,
-    marginRight: 2,
+  cardAccentBar: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 3.5,
   },
-
+  cardGlowCircle: {
+    position: "absolute",
+    right: -25,
+    bottom: -25,
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+  },
   iconWrap: {
-    width: 46,
-    height: 46,
-    borderRadius: 12,
-    borderWidth: 1,
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    borderWidth: 1.2,
     justifyContent: "center",
     alignItems: "center",
   },
-
   cardBody: {
     flex: 1,
     gap: 3,
@@ -467,15 +497,15 @@ weatherWrap: {
     gap: 8,
   },
   cardTitle: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: "700",
     color: C.text,
-    letterSpacing: 0.1,
+    letterSpacing: 0.2,
   },
   cardSub: {
-    fontSize: 11,
+    fontSize: 11.5,
     color: C.sub,
-    lineHeight: 15,
+    lineHeight: 16,
   },
 
   // Tag pill
@@ -494,8 +524,11 @@ weatherWrap: {
     borderRadius: 3,
   },
   tagText: {
-    fontSize: 8,
+    fontSize: 8.5,
     fontWeight: "800",
-    letterSpacing: 1,
+    letterSpacing: 0.8,
+  },
+  chevronWrap: {
+    paddingLeft: 4,
   },
 });

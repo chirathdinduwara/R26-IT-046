@@ -14,20 +14,25 @@ import {
 } from "react-native";
 import { useState, useEffect, useRef } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
-import { 
-  API_BASE_URL, 
-  DENGUE_API_URL, 
-  FLOOD_API_URL, 
-  PADDY_API_URL, 
-  SAFE_ROUTE_API_URL 
+import { MaterialCommunityIcons, Ionicons, Feather } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
+import {
+  API_BASE_URL,
+  DENGUE_API_URL,
+  FLOOD_API_URL,
+  PADDY_API_URL,
+  SAFE_ROUTE_API_URL,
 } from "../config/api";
 
 const BACKENDS = {
-  dengue: { label: "Dengue Backend", url: DENGUE_API_URL },
-  flood: { label: "Flood Backend", url: FLOOD_API_URL },
-  paddy: { label: "Paddy Backend", url: PADDY_API_URL },
-  safe_route: { label: "Safe Route Backend", url: SAFE_ROUTE_API_URL }
+  dengue: { label: "Dengue Backend", url: DENGUE_API_URL, icon: "bug" },
+  flood: { label: "Flood Backend", url: FLOOD_API_URL, icon: "water" },
+  paddy: { label: "Paddy Backend", url: PADDY_API_URL, icon: "sprout" },
+  safe_route: {
+    label: "Safe Route Backend",
+    url: SAFE_ROUTE_API_URL,
+    icon: "shield-check",
+  },
 };
 
 // ── Storage key ───────────────────────────────────────────────────────────────
@@ -51,12 +56,13 @@ const DEFAULT_SETTINGS = {
   safeRouteRerunMin: "10",
 };
 
-// ── Theme ─────────────────────────────────────────────────────────────────────
+// ── Theme Palette ─────────────────────────────────────────────────────────────
 const C = {
   bg: "#0D1117",
   surface: "#161B22",
   surfaceHi: "#21262D",
   border: "#30363D",
+  borderGlow: "rgba(240, 165, 0, 0.35)",
   amber: "#F0A500",
   amberDim: "#7A5200",
   teal: "#39D5C6",
@@ -66,6 +72,7 @@ const C = {
   text: "#E6EDF3",
   sub: "#8B949E",
   muted: "#484F58",
+  blue: "#1E90FF",
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -76,7 +83,10 @@ function SectionHeader({ icon, label, accent = C.amber }) {
   return (
     <View style={styles.sectionHeader}>
       <View
-        style={[styles.sectionIconWrap, { backgroundColor: accent + "22" }]}
+        style={[
+          styles.sectionIconWrap,
+          { backgroundColor: accent + "1A", borderColor: accent + "44" },
+        ]}
       >
         <MaterialCommunityIcons name={icon} size={15} color={accent} />
       </View>
@@ -86,9 +96,14 @@ function SectionHeader({ icon, label, accent = C.amber }) {
   );
 }
 
-function SettingRow({ label, sub, children, last }) {
+function SettingRow({ label, sub, icon, children, last }) {
   return (
     <View style={[styles.row, last && styles.rowLast]}>
+      {icon && (
+        <View style={styles.rowIconPill}>
+          <MaterialCommunityIcons name={icon} size={16} color={C.sub} />
+        </View>
+      )}
       <View style={styles.rowLeft}>
         <Text style={styles.rowLabel}>{label}</Text>
         {sub ? <Text style={styles.rowSub}>{sub}</Text> : null}
@@ -103,26 +118,29 @@ function StyledInput({
   onChangeText,
   placeholder,
   keyboardType = "default",
+  unit,
   monospace,
 }) {
   const [focused, setFocused] = useState(false);
   return (
-    <TextInput
-      style={[
-        styles.input,
-        monospace && styles.inputMono,
-        focused && styles.inputFocused,
-      ]}
-      value={value}
-      onChangeText={onChangeText}
-      placeholder={placeholder}
-      placeholderTextColor={C.muted}
-      keyboardType={keyboardType}
-      autoCapitalize="none"
-      autoCorrect={false}
-      onFocus={() => setFocused(true)}
-      onBlur={() => setFocused(false)}
-    />
+    <View style={[styles.inputContainer, focused && styles.inputContainerFocused]}>
+      <TextInput
+        style={[
+          styles.input,
+          monospace && styles.inputMono,
+        ]}
+        value={value}
+        onChangeText={onChangeText}
+        placeholder={placeholder}
+        placeholderTextColor={C.muted}
+        keyboardType={keyboardType}
+        autoCapitalize="none"
+        autoCorrect={false}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+      />
+      {unit && <Text style={styles.inputUnit}>{unit}</Text>}
+    </View>
   );
 }
 
@@ -153,15 +171,14 @@ function StyledSwitch({ value, onValueChange }) {
     <Switch
       value={value}
       onValueChange={onValueChange}
-      trackColor={{ false: C.border, true: C.amberDim }}
+      trackColor={{ false: C.surfaceHi, true: C.amberDim }}
       thumbColor={value ? C.amber : C.muted}
-      ios_backgroundColor={C.border}
+      ios_backgroundColor={C.surfaceHi}
     />
   );
 }
 
 function PingDot({ status }) {
-  // status: "idle" | "checking" | "ok" | "fail"
   const pulse = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
@@ -178,7 +195,7 @@ function PingDot({ status }) {
             duration: 500,
             useNativeDriver: true,
           }),
-        ]),
+        ])
       );
       loop.start();
       return () => loop.stop();
@@ -236,13 +253,13 @@ export default function SettingsScreen() {
       Animated.sequence([
         Animated.timing(saveAnim, {
           toValue: 1,
-          duration: 200,
+          duration: 220,
           useNativeDriver: true,
         }),
         Animated.delay(1400),
         Animated.timing(saveAnim, {
           toValue: 0,
-          duration: 200,
+          duration: 220,
           useNativeDriver: true,
         }),
       ]).start(() => setSaved(false));
@@ -266,7 +283,7 @@ export default function SettingsScreen() {
             await AsyncStorage.removeItem(STORAGE_KEY);
           },
         },
-      ],
+      ]
     );
   };
 
@@ -286,35 +303,38 @@ export default function SettingsScreen() {
   const pingApi = async () => {
     setPingStatus("checking");
     setPingMs(null);
-    setPingText("Pinging...");
+    setPingText("Testing response time...");
     const start = Date.now();
-    
+
     const targetBackend = BACKENDS[selectedBackend];
     const cleanedUrl = cleanUrl(targetBackend.url);
-    
+
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 8000);
-    
+
     try {
       const res = await fetch(`${cleanedUrl}/health`, {
         signal: controller.signal,
       });
       clearTimeout(timeoutId);
-      
+
       const latency = Date.now() - start;
       setPingMs(latency);
-      
+
       if (!res.ok) {
         // Fallback check to root URL directly
         const fallbackController = new AbortController();
-        const fallbackTimeout = setTimeout(() => fallbackController.abort(), 4000);
+        const fallbackTimeout = setTimeout(
+          () => fallbackController.abort(),
+          4000
+        );
         const fallbackRes = await fetch(cleanedUrl, {
           signal: fallbackController.signal,
         });
         clearTimeout(fallbackTimeout);
         if (!fallbackRes.ok) throw new Error("non-2xx");
       }
-      
+
       setPingStatus("ok");
       setPingText(`${targetBackend.label} is online : ${latency}ms`);
     } catch (err) {
@@ -332,30 +352,40 @@ export default function SettingsScreen() {
     <View style={styles.screen}>
       <StatusBar barStyle="light-content" backgroundColor={C.bg} />
 
-      {/* ── Header ──────────────────────────────────────────────────────── */}
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <View style={styles.headerIconWrap}>
-            <MaterialCommunityIcons
-              name="tune-variant"
-              size={18}
-              color={C.amber}
-            />
+      {/* ── Modern App Header ────────────────────────────────────────────── */}
+      <LinearGradient
+        colors={["#1B222D", "#131820", "#0D1117"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={styles.header}
+      >
+        <View style={styles.headerContent}>
+          <View style={styles.headerLeft}>
+            <View style={styles.headerIconWrap}>
+              <MaterialCommunityIcons
+                name="tune-variant"
+                size={20}
+                color={C.amber}
+              />
+            </View>
+            <View>
+              <Text style={styles.headerTitle}>System Settings</Text>
+              <Text style={styles.headerSub}>Geonix Climate & Risk Control</Text>
+            </View>
           </View>
-          <View>
-            <Text style={styles.headerTitle}>Settings</Text>
-            <Text style={styles.headerSub}>Flood Monitor · Kelani Basin</Text>
-          </View>
+          <TouchableOpacity
+            style={styles.resetBtn}
+            onPress={handleReset}
+            activeOpacity={0.7}
+          >
+            <MaterialCommunityIcons name="restore" size={15} color={C.amber} />
+            <Text style={styles.resetText}>Reset</Text>
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity
-          style={styles.resetBtn}
-          onPress={handleReset}
-          activeOpacity={0.7}
-        >
-          <MaterialCommunityIcons name="restore" size={15} color={C.sub} />
-          <Text style={styles.resetText}>Reset</Text>
-        </TouchableOpacity>
-      </View>
+
+        {/* Ambient bottom line */}
+        <View style={styles.headerBorder} />
+      </LinearGradient>
 
       <ScrollView
         style={styles.scroll}
@@ -364,107 +394,136 @@ export default function SettingsScreen() {
         keyboardShouldPersistTaps="handled"
       >
         {/* ════════ SERVER ════════ */}
-        <SectionHeader icon="server-network" label="SERVER" />
+        <SectionHeader icon="server-network" label="BACKEND SERVICES & APIS" />
 
-         <View style={styles.card}>
-           {/* Selector Tabs Row */}
-           <View style={styles.row}>
-             <View style={styles.rowLeft}>
-               <Text style={styles.rowLabel}>Select Backend Service</Text>
-               <Text style={styles.rowSub}>Choose a backend API to test connection</Text>
-             </View>
-           </View>
+        <View style={styles.card}>
+          <View style={styles.cardHeaderStrip}>
+            <Text style={styles.cardHeaderTitle}>SELECT BACKEND SERVICE</Text>
+            <Text style={styles.cardHeaderSub}>
+              Switch between predictive models to check network health
+            </Text>
+          </View>
 
-           <View style={styles.backendTabContainer}>
-             {Object.keys(BACKENDS).map((key) => {
-               const isActive = selectedBackend === key;
-               const labelMap = {
-                 dengue: "Dengue",
-                 flood: "Flood",
-                 paddy: "Paddy",
-                 safe_route: "Safe Nav"
-               };
-               return (
-                 <TouchableOpacity
-                   key={key}
-                   style={[styles.backendTab, isActive && styles.backendTabActive]}
-                   onPress={() => {
-                     setSelectedBackend(key);
-                     setPingStatus("idle");
-                     setPingMs(null);
-                     setPingText("");
-                   }}
-                   activeOpacity={0.78}
-                 >
-                   <Text style={[styles.backendTabText, isActive && styles.backendTabTextActive]}>
-                     {labelMap[key]}
-                   </Text>
-                 </TouchableOpacity>
-               );
-             })}
-           </View>
+          {/* Backend Selector Tabs */}
+          <View style={styles.backendTabContainer}>
+            {Object.keys(BACKENDS).map((key) => {
+              const isActive = selectedBackend === key;
+              const b = BACKENDS[key];
+              const labelMap = {
+                dengue: "Dengue",
+                flood: "Flood",
+                paddy: "Paddy",
+                safe_route: "Safe Nav",
+              };
+              return (
+                <TouchableOpacity
+                  key={key}
+                  style={[
+                    styles.backendTab,
+                    isActive && styles.backendTabActive,
+                  ]}
+                  onPress={() => {
+                    setSelectedBackend(key);
+                    setPingStatus("idle");
+                    setPingMs(null);
+                    setPingText("");
+                  }}
+                  activeOpacity={0.78}
+                >
+                  <MaterialCommunityIcons
+                    name={b.icon}
+                    size={15}
+                    color={isActive ? C.amber : C.sub}
+                    style={{ marginBottom: 3 }}
+                  />
+                  <Text
+                    style={[
+                      styles.backendTabText,
+                      isActive && styles.backendTabTextActive,
+                    ]}
+                  >
+                    {labelMap[key]}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
 
-           {/* Selected URL Row */}
-           <SettingRow
-             label="Selected API URL"
-             sub="Configured in .env file"
-           >
-             <Text numberOfLines={1} ellipsizeMode="tail" style={{ color: C.text, fontFamily: Platform.OS === "ios" ? "Courier New" : "monospace", fontSize: 11, maxWidth: 170 }}>
-               {BACKENDS[selectedBackend].url}
-             </Text>
-           </SettingRow>
+          {/* Selected URL Row */}
+          <View style={styles.urlContainer}>
+            <View style={styles.urlHeader}>
+              <View style={styles.urlBadge}>
+                <Feather name="link-2" size={11} color={C.teal} />
+                <Text style={styles.urlBadgeText}>ACTIVE ENDPOINT</Text>
+              </View>
+              <Text style={styles.urlEnvText}>Source: .env</Text>
+            </View>
+            <Text
+              numberOfLines={1}
+              ellipsizeMode="middle"
+              style={styles.urlValue}
+            >
+              {BACKENDS[selectedBackend].url}
+            </Text>
+          </View>
 
-           {/* Connection Ping row */}
-           <View style={[styles.row, styles.rowLast]}>
-             <View style={styles.rowLeft}>
-               <View
-                 style={{ flexDirection: "row", alignItems: "center", gap: 7 }}
-               >
-                 <PingDot status={pingStatus} />
-                 <Text style={styles.rowLabel}>Connection Status</Text>
-               </View>
-               <Text style={styles.rowSub}>
-                 {pingText || "Not tested"}
-               </Text>
-             </View>
-             <TouchableOpacity
-               style={[
-                 styles.ghostBtn,
-                 pingStatus === "checking" && styles.ghostBtnDisabled,
-               ]}
-               onPress={pingApi}
-               disabled={pingStatus === "checking"}
-               activeOpacity={0.75}
-             >
-               {pingStatus === "checking" ? (
-                 <ActivityIndicator size="small" color={C.amber} />
-               ) : (
-                 <>
-                   <MaterialCommunityIcons
-                     name="lightning-bolt"
-                     size={13}
-                     color={C.amber}
-                   />
-                   <Text style={styles.ghostBtnText}>Test</Text>
-                 </>
-               )}
-             </TouchableOpacity>
-           </View>
-         </View>
+          {/* Connection Diagnostics Row */}
+          <View style={[styles.row, styles.rowLast, { paddingTop: 14 }]}>
+            <View style={styles.rowLeft}>
+              <View
+                style={{ flexDirection: "row", alignItems: "center", gap: 7 }}
+              >
+                <PingDot status={pingStatus} />
+                <Text style={styles.rowLabel}>Diagnostics Status</Text>
+              </View>
+              <Text
+                style={[
+                  styles.rowSub,
+                  pingStatus === "ok" && { color: C.safe, fontWeight: "600" },
+                  pingStatus === "fail" && { color: C.danger, fontWeight: "600" },
+                ]}
+              >
+                {pingText || "Service ready to test"}
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={[
+                styles.ghostBtn,
+                pingStatus === "checking" && styles.ghostBtnDisabled,
+              ]}
+              onPress={pingApi}
+              disabled={pingStatus === "checking"}
+              activeOpacity={0.75}
+            >
+              {pingStatus === "checking" ? (
+                <ActivityIndicator size="small" color={C.amber} />
+              ) : (
+                <>
+                  <MaterialCommunityIcons
+                    name="lightning-bolt"
+                    size={14}
+                    color={C.amber}
+                  />
+                  <Text style={styles.ghostBtnText}>Ping Test</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
 
         {/* ════════ ALERT THRESHOLDS ════════ */}
         <SectionHeader
           icon="water-alert"
-          label="ALERT THRESHOLDS"
+          label="FLOOD WATER LEVEL THRESHOLDS"
           accent={C.danger}
         />
 
         <View style={styles.card}>
           <View style={styles.thresholdLegend}>
             {[
-              { color: "#c0392b", label: "DANGER" },
-              { color: "#e67e22", label: "ALERT" },
-              { color: "#f1c40f", label: "WATCH" },
+              { color: "#F85149", label: "DANGER", sub: "≥ Safe limit" },
+              { color: "#FF7043", label: "ALERT", sub: "Elevated" },
+              { color: "#F0A500", label: "WATCH", sub: "Monitor" },
             ].map((item) => (
               <View key={item.label} style={styles.legendItem}>
                 <View
@@ -475,30 +534,48 @@ export default function SettingsScreen() {
             ))}
           </View>
 
-          <SettingRow label="Danger level (m)" sub="River exceeds safe limits">
+          <SettingRow
+            label="Danger level"
+            sub="Critical river gauge height"
+            icon="alert-octagon"
+          >
             <StyledInput
               value={settings.dangerThreshold}
               onChangeText={(v) => patch("dangerThreshold", v)}
               placeholder="10.0"
               keyboardType="decimal-pad"
+              unit="m"
               monospace
             />
           </SettingRow>
-          <SettingRow label="Alert level (m)" sub="Elevated risk zone">
+
+          <SettingRow
+            label="Alert level"
+            sub="Elevated risk warning boundary"
+            icon="alert"
+          >
             <StyledInput
               value={settings.alertThreshold}
               onChangeText={(v) => patch("alertThreshold", v)}
               placeholder="8.0"
               keyboardType="decimal-pad"
+              unit="m"
               monospace
             />
           </SettingRow>
-          <SettingRow label="Watch level (m)" sub="Monitor closely" last>
+
+          <SettingRow
+            label="Watch level"
+            sub="Pre-alert advisory boundary"
+            icon="eye-outline"
+            last
+          >
             <StyledInput
               value={settings.watchThreshold}
               onChangeText={(v) => patch("watchThreshold", v)}
               placeholder="6.5"
               keyboardType="decimal-pad"
+              unit="m"
               monospace
             />
           </SettingRow>
@@ -507,12 +584,16 @@ export default function SettingsScreen() {
         {/* ════════ NOTIFICATIONS ════════ */}
         <SectionHeader
           icon="bell-ring-outline"
-          label="NOTIFICATIONS"
+          label="EARLY WARNING NOTIFICATIONS"
           accent={C.teal}
         />
 
         <View style={styles.card}>
-          <SettingRow label="Danger alerts" sub="Notify when level ≥ danger">
+          <SettingRow
+            label="Danger alerts"
+            sub="Push alerts when water level ≥ danger"
+            icon="bell-alert"
+          >
             <StyledSwitch
               value={settings.notifyDanger}
               onValueChange={(v) => patch("notifyDanger", v)}
@@ -520,7 +601,8 @@ export default function SettingsScreen() {
           </SettingRow>
           <SettingRow
             label="Alert-level notices"
-            sub="Notify when level ≥ alert"
+            sub="Notify when water level reaches alert zone"
+            icon="bell"
           >
             <StyledSwitch
               value={settings.notifyAlert}
@@ -529,7 +611,8 @@ export default function SettingsScreen() {
           </SettingRow>
           <SettingRow
             label="Watch-level notices"
-            sub="Notify when level ≥ watch"
+            sub="Notify for minor water level advisory"
+            icon="bell-outline"
             last
           >
             <StyledSwitch
@@ -540,12 +623,17 @@ export default function SettingsScreen() {
         </View>
 
         {/* ════════ LOCATION ════════ */}
-        <SectionHeader icon="crosshairs-gps" label="LOCATION" accent={C.teal} />
+        <SectionHeader
+          icon="crosshairs-gps"
+          label="GEOLOCATION & SENSORS"
+          accent={C.blue}
+        />
 
         <View style={styles.card}>
           <SettingRow
             label="GPS Accuracy"
-            sub="Higher accuracy uses more battery"
+            sub="Higher accuracy enhances precision routing"
+            icon="crosshairs"
           >
             <SegmentControl
               value={settings.locationAccuracy}
@@ -559,7 +647,8 @@ export default function SettingsScreen() {
           </SettingRow>
           <SettingRow
             label="Auto-check on launch"
-            sub="Run safety check when app opens"
+            sub="Perform instant hazard check when opened"
+            icon="shield-search"
             last
           >
             <StyledSwitch
@@ -570,10 +659,18 @@ export default function SettingsScreen() {
         </View>
 
         {/* ════════ MAP DISPLAY ════════ */}
-        <SectionHeader icon="map-outline" label="MAP DISPLAY" />
+        <SectionHeader
+          icon="map-outline"
+          label="MAP VISUALIZATION"
+          accent={C.amber}
+        />
 
         <View style={styles.card}>
-          <SettingRow label="Map Style" sub="Base layer type">
+          <SettingRow
+            label="Map Style"
+            sub="Cartographic base layer"
+            icon="layers-outline"
+          >
             <SegmentControl
               value={settings.mapStyle}
               onChange={(v) => patch("mapStyle", v)}
@@ -586,7 +683,8 @@ export default function SettingsScreen() {
           </SettingRow>
           <SettingRow
             label="Flood zone labels"
-            sub="Show severity text on polygons"
+            sub="Overlay division risk text directly on map"
+            icon="label-outline"
           >
             <StyledSwitch
               value={settings.showFloodZoneLabels}
@@ -594,8 +692,9 @@ export default function SettingsScreen() {
             />
           </SettingRow>
           <SettingRow
-            label="Polygon opacity (%)"
-            sub="0 = transparent · 100 = solid"
+            label="Polygon opacity"
+            sub="Flood risk overlay translucency"
+            icon="opacity"
             last
           >
             <StyledInput
@@ -603,6 +702,7 @@ export default function SettingsScreen() {
               onChangeText={(v) => patch("polygonOpacity", v)}
               placeholder="40"
               keyboardType="number-pad"
+              unit="%"
               monospace
             />
           </SettingRow>
@@ -611,14 +711,15 @@ export default function SettingsScreen() {
         {/* ════════ SAFE ROUTE NAVIGATION ════════ */}
         <SectionHeader
           icon="navigation-variant-outline"
-          label="SAFE ROUTE NAVIGATION"
+          label="SAFE ROUTE NAVIGATION (AI)"
           accent={C.safe}
         />
 
         <View style={styles.card}>
           <SettingRow
-            label="RouteMaster AI Voice Alerts"
-            sub="Speak safety recommendations while navigating"
+            label="Voice Navigation Alerts"
+            sub="Audio hazard notifications while navigating"
+            icon="volume-high"
           >
             <StyledSwitch
               value={settings.safeRouteSpeak}
@@ -626,8 +727,9 @@ export default function SettingsScreen() {
             />
           </SettingRow>
           <SettingRow
-            label="Model Re-run Frequency"
-            sub="Interval (min) to re-evaluate road risk while navigating"
+            label="Model Re-evaluation"
+            sub="Dynamic route recalculation interval"
+            icon="timer-refresh-outline"
             last
           >
             <SegmentControl
@@ -643,12 +745,17 @@ export default function SettingsScreen() {
         </View>
 
         {/* ════════ DATA ════════ */}
-        <SectionHeader icon="database-refresh-outline" label="DATA" />
+        <SectionHeader
+          icon="database-refresh-outline"
+          label="DATA SYNCHRONIZATION"
+          accent={C.teal}
+        />
 
         <View style={styles.card}>
           <SettingRow
-            label="Refresh interval (min)"
-            sub="Background prediction refresh rate"
+            label="Refresh interval"
+            sub="Background satellite & rainfall sync frequency"
+            icon="sync"
             last
           >
             <StyledInput
@@ -656,6 +763,7 @@ export default function SettingsScreen() {
               onChangeText={(v) => patch("refreshIntervalMin", v)}
               placeholder="15"
               keyboardType="number-pad"
+              unit="min"
               monospace
             />
           </SettingRow>
@@ -664,26 +772,53 @@ export default function SettingsScreen() {
         {/* ════════ ABOUT ════════ */}
         <SectionHeader
           icon="information-outline"
-          label="ABOUT"
+          label="ABOUT SYSTEM"
           accent={C.sub}
         />
 
         <View style={styles.card}>
           {[
-            { label: "App", value: "Climate Aware Risk Monitor" },
-            { label: "Version", value: "1.0.0" },
-            { label: "Region", value: "Kelani Basin, LK" },
-            { label: "Data", value: "Open-Meteo · IRD" },
             {
-              label: "Platform",
-              value: Platform.OS === "ios" ? "iOS" : "Android",
+              label: "Application",
+              value: "Geonix Mobile",
+              icon: "cellphone-cog",
+            },
+            {
+              label: "Version",
+              value: "1.0.0 (Production)",
+              icon: "tag-outline",
+            },
+            {
+              label: "Monitored Region",
+              value: "Kelani Basin & Sri Lanka",
+              icon: "map-marker",
+            },
+            {
+              label: "Primary Sensors",
+              value: "Open-Meteo · IRD · DMC",
+              icon: "database-outline",
+            },
+            {
+              label: "Runtime Environment",
+              value: Platform.OS === "ios" ? "Apple iOS" : "Google Android",
+              icon: "laptop",
             },
           ].map((item, i, arr) => (
             <View
               key={item.label}
-              style={[styles.aboutRow, i === arr.length - 1 && styles.rowLast]}
+              style={[
+                styles.aboutRow,
+                i === arr.length - 1 && styles.rowLast,
+              ]}
             >
-              <Text style={styles.aboutKey}>{item.label}</Text>
+              <View style={styles.aboutLeft}>
+                <MaterialCommunityIcons
+                  name={item.icon}
+                  size={15}
+                  color={C.amber}
+                />
+                <Text style={styles.aboutKey}>{item.label}</Text>
+              </View>
               <Text style={styles.aboutVal}>{item.value}</Text>
             </View>
           ))}
@@ -695,18 +830,25 @@ export default function SettingsScreen() {
           onPress={handleSave}
           activeOpacity={0.85}
         >
-          <MaterialCommunityIcons
-            name="content-save-outline"
-            size={18}
-            color="#000"
-          />
-          <Text style={styles.saveBtnText}>Save Settings</Text>
+          <LinearGradient
+            colors={[C.amber, "#D48B00"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.saveBtnGradient}
+          >
+            <MaterialCommunityIcons
+              name="content-save-check"
+              size={20}
+              color="#000"
+            />
+            <Text style={styles.saveBtnText}>Save Configuration</Text>
+          </LinearGradient>
         </TouchableOpacity>
 
-        <View style={{ height: 40 }} />
+        <View style={{ height: 48 }} />
       </ScrollView>
 
-      {/* ── Saved toast ──────────────────────────────────────────────────── */}
+      {/* ── Saved toast notification ──────────────────────────────────────── */}
       <Animated.View
         style={[
           styles.savedToast,
@@ -716,7 +858,7 @@ export default function SettingsScreen() {
               {
                 translateY: saveAnim.interpolate({
                   inputRange: [0, 1],
-                  outputRange: [10, 0],
+                  outputRange: [12, 0],
                 }),
               },
             ],
@@ -724,8 +866,8 @@ export default function SettingsScreen() {
         ]}
         pointerEvents="none"
       >
-        <MaterialCommunityIcons name="check-circle" size={15} color={C.safe} />
-        <Text style={styles.savedToastText}>Settings saved</Text>
+        <MaterialCommunityIcons name="check-decagram" size={17} color={C.safe} />
+        <Text style={styles.savedToastText}>Settings Saved Successfully</Text>
       </Animated.View>
     </View>
   );
@@ -742,15 +884,16 @@ const styles = StyleSheet.create({
 
   // ── Header ─────────────────────────────────────────────────────────────────
   header: {
+    paddingTop: Platform.OS === "ios" ? 54 : 42,
+    paddingBottom: 0,
+    overflow: "hidden",
+  },
+  headerContent: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingTop: Platform.OS === "ios" ? 58 : 24,
-    paddingBottom: 14,
     paddingHorizontal: 20,
-    backgroundColor: C.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: C.border,
+    paddingBottom: 16,
   },
   headerLeft: {
     flexDirection: "row",
@@ -758,25 +901,25 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   headerIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: C.amberDim + "55",
-    borderWidth: 1,
-    borderColor: C.amberDim,
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: C.amber + "1A",
+    borderWidth: 1.2,
+    borderColor: C.amber + "4D",
     justifyContent: "center",
     alignItems: "center",
   },
   headerTitle: {
-    fontSize: 17,
-    fontWeight: "700",
+    fontSize: 20,
+    fontWeight: "800",
     color: C.text,
-    letterSpacing: 0.2,
+    letterSpacing: -0.2,
   },
   headerSub: {
     fontSize: 11,
     color: C.sub,
-    marginTop: 1,
+    marginTop: 2,
     letterSpacing: 0.3,
   },
   resetBtn: {
@@ -785,39 +928,46 @@ const styles = StyleSheet.create({
     gap: 5,
     paddingVertical: 6,
     paddingHorizontal: 12,
-    borderRadius: 8,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: C.border,
+    borderColor: C.amber + "44",
+    backgroundColor: C.amber + "12",
   },
   resetText: {
     fontSize: 12,
-    color: C.sub,
-    fontWeight: "600",
+    color: C.amber,
+    fontWeight: "700",
+  },
+  headerBorder: {
+    height: 2,
+    backgroundColor: C.amber,
+    opacity: 0.65,
   },
 
   // ── Scroll ─────────────────────────────────────────────────────────────────
   scroll: { flex: 1 },
-  scrollContent: { paddingHorizontal: 16, paddingTop: 20 },
+  scrollContent: { paddingHorizontal: 16, paddingTop: 18 },
 
   // ── Section header ─────────────────────────────────────────────────────────
   sectionHeader: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    marginBottom: 8,
-    marginTop: 6,
+    marginBottom: 10,
+    marginTop: 8,
   },
   sectionIconWrap: {
-    width: 22,
-    height: 22,
-    borderRadius: 6,
+    width: 24,
+    height: 24,
+    borderRadius: 7,
+    borderWidth: 1,
     justifyContent: "center",
     alignItems: "center",
   },
   sectionLabel: {
-    fontSize: 10,
+    fontSize: 10.5,
     fontWeight: "800",
-    letterSpacing: 2,
+    letterSpacing: 1.6,
   },
   sectionLine: {
     flex: 1,
@@ -827,11 +977,33 @@ const styles = StyleSheet.create({
   // ── Card ───────────────────────────────────────────────────────────────────
   card: {
     backgroundColor: C.surface,
-    borderRadius: 14,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: C.border,
     marginBottom: 20,
     overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  cardHeaderStrip: {
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 8,
+  },
+  cardHeaderTitle: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: C.amber,
+    letterSpacing: 1.2,
+  },
+  cardHeaderSub: {
+    fontSize: 11,
+    color: C.sub,
+    marginTop: 2,
+    lineHeight: 15,
   },
 
   // ── Row ────────────────────────────────────────────────────────────────────
@@ -842,11 +1014,21 @@ const styles = StyleSheet.create({
     paddingVertical: 13,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: C.border,
+    borderBottomColor: "rgba(255, 255, 255, 0.06)",
     gap: 12,
   },
   rowLast: {
     borderBottomWidth: 0,
+  },
+  rowIconPill: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: C.surfaceHi,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: C.border,
   },
   rowLeft: {
     flex: 1,
@@ -856,9 +1038,9 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   rowLabel: {
-    fontSize: 14,
+    fontSize: 13.5,
     color: C.text,
-    fontWeight: "500",
+    fontWeight: "600",
   },
   rowSub: {
     fontSize: 11,
@@ -867,41 +1049,57 @@ const styles = StyleSheet.create({
   },
 
   // ── Input ──────────────────────────────────────────────────────────────────
+  inputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: C.bg,
+    borderRadius: 9,
+    borderWidth: 1,
+    borderColor: C.border,
+    paddingHorizontal: 10,
+    minWidth: 100,
+  },
+  inputContainerFocused: {
+    borderColor: C.amber,
+  },
   input: {
-    backgroundColor: C.surfaceHi,
     color: C.text,
     fontSize: 13,
     paddingVertical: 7,
-    paddingHorizontal: 11,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: C.border,
-    minWidth: 120,
+    flex: 1,
     textAlign: "right",
   },
   inputMono: {
     fontFamily: Platform.OS === "ios" ? "Courier New" : "monospace",
-    fontSize: 12,
+    fontSize: 12.5,
+    fontWeight: "600",
   },
-  inputFocused: {
-    borderColor: C.amber,
+  inputUnit: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: C.amber,
+    marginLeft: 5,
   },
 
   // ── Segment ────────────────────────────────────────────────────────────────
   segment: {
     flexDirection: "row",
-    backgroundColor: C.surfaceHi,
-    borderRadius: 8,
+    backgroundColor: C.bg,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: C.border,
-    overflow: "hidden",
+    padding: 3,
+    gap: 2,
   },
   segBtn: {
     paddingVertical: 6,
-    paddingHorizontal: 10,
+    paddingHorizontal: 11,
+    borderRadius: 7,
   },
   segBtnActive: {
-    backgroundColor: C.amberDim,
+    backgroundColor: C.surfaceHi,
+    borderWidth: 1,
+    borderColor: C.amber + "66",
   },
   segText: {
     fontSize: 11,
@@ -910,15 +1108,18 @@ const styles = StyleSheet.create({
   },
   segTextActive: {
     color: C.amber,
+    fontWeight: "800",
   },
 
   // ── Threshold legend ───────────────────────────────────────────────────────
   thresholdLegend: {
     flexDirection: "row",
-    gap: 16,
+    gap: 14,
     paddingHorizontal: 16,
     paddingTop: 12,
-    paddingBottom: 4,
+    paddingBottom: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255, 255, 255, 0.06)",
   },
   legendItem: {
     flexDirection: "row",
@@ -931,7 +1132,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   legendText: {
-    fontSize: 10,
+    fontSize: 9.5,
     color: C.sub,
     fontWeight: "700",
     letterSpacing: 0.8,
@@ -951,11 +1152,11 @@ const styles = StyleSheet.create({
     gap: 5,
     paddingVertical: 7,
     paddingHorizontal: 12,
-    borderRadius: 8,
+    borderRadius: 9,
     borderWidth: 1,
-    borderColor: C.amberDim,
-    backgroundColor: C.amberDim + "33",
-    minWidth: 64,
+    borderColor: C.amber + "66",
+    backgroundColor: C.amber + "1A",
+    minWidth: 70,
     justifyContent: "center",
   },
   ghostBtnDisabled: {
@@ -970,11 +1171,17 @@ const styles = StyleSheet.create({
   // ── About rows ─────────────────────────────────────────────────────────────
   aboutRow: {
     flexDirection: "row",
+    alignItems: "center",
     justifyContent: "space-between",
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: C.border,
+    borderBottomColor: "rgba(255, 255, 255, 0.06)",
+  },
+  aboutLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 9,
   },
   aboutKey: {
     fontSize: 13,
@@ -982,21 +1189,28 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   aboutVal: {
-    fontSize: 13,
+    fontSize: 12.5,
     color: C.text,
     fontWeight: "600",
   },
 
   // ── Save button ────────────────────────────────────────────────────────────
   saveBtn: {
+    borderRadius: 15,
+    overflow: "hidden",
+    marginTop: 4,
+    shadowColor: C.amber,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  saveBtnGradient: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 9,
-    backgroundColor: C.amber,
-    borderRadius: 14,
     paddingVertical: 15,
-    marginTop: 4,
   },
   saveBtnText: {
     fontSize: 15,
@@ -1008,26 +1222,26 @@ const styles = StyleSheet.create({
   // ── Saved toast ────────────────────────────────────────────────────────────
   savedToast: {
     position: "absolute",
-    bottom: 30,
+    bottom: 28,
     alignSelf: "center",
     flexDirection: "row",
     alignItems: "center",
-    gap: 7,
-    backgroundColor: C.surfaceHi,
+    gap: 8,
+    backgroundColor: "#161B22FA",
     borderWidth: 1,
-    borderColor: C.safe + "66",
-    paddingVertical: 9,
-    paddingHorizontal: 16,
-    borderRadius: 20,
+    borderColor: C.safe + "80",
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    borderRadius: 22,
     shadowColor: "#000",
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    elevation: 8,
   },
   savedToastText: {
     fontSize: 13,
     color: C.safe,
-    fontWeight: "600",
+    fontWeight: "700",
   },
 
   // ── Backend Selector Styles ────────────────────────────────────────────────
@@ -1035,13 +1249,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 6,
     paddingHorizontal: 16,
-    paddingBottom: 16,
+    paddingVertical: 10,
     justifyContent: "space-between",
   },
   backendTab: {
     flex: 1,
     paddingVertical: 9,
-    borderRadius: 8,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: C.border,
     backgroundColor: C.surfaceHi,
@@ -1050,7 +1264,7 @@ const styles = StyleSheet.create({
   },
   backendTabActive: {
     borderColor: C.amber,
-    backgroundColor: C.amberDim + "33",
+    backgroundColor: C.amber + "1F",
   },
   backendTabText: {
     fontSize: 10,
@@ -1059,5 +1273,44 @@ const styles = StyleSheet.create({
   },
   backendTabTextActive: {
     color: C.amber,
+    fontWeight: "800",
+  },
+
+  // URL Display box
+  urlContainer: {
+    marginHorizontal: 16,
+    marginBottom: 6,
+    backgroundColor: C.bg,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: C.border,
+    padding: 10,
+  },
+  urlHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 4,
+  },
+  urlBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  urlBadgeText: {
+    fontSize: 9,
+    fontWeight: "800",
+    color: C.teal,
+    letterSpacing: 1,
+  },
+  urlEnvText: {
+    fontSize: 9.5,
+    color: C.muted,
+  },
+  urlValue: {
+    color: C.text,
+    fontFamily: Platform.OS === "ios" ? "Courier New" : "monospace",
+    fontSize: 11,
+    fontWeight: "500",
   },
 });

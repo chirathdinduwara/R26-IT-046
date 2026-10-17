@@ -18,27 +18,33 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Location from "expo-location";
 import * as Speech from "expo-speech";
 import MapView, { Circle, Marker, Polyline } from "react-native-maps";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { MaterialCommunityIcons, Ionicons, Feather } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { SAFE_ROUTE_API_URL } from "../config/api";
 
 const DEFAULT_SAFE_ROUTE_API_URL = SAFE_ROUTE_API_URL;
 const STORAGE_KEY = "@flood_app_settings";
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
+// ── Palette (Cohesive with Geonix Dark Theme) ──────────────────────────────
 const C = {
   bg: "#0D1117",
   surface: "#161B22",
   surfaceHi: "#21262D",
   border: "#30363D",
+  borderGlow: "rgba(240, 165, 0, 0.35)",
   text: "#E6EDF3",
   sub: "#8B949E",
+  muted: "#484F58",
   blue: "#58A6FF",
   blueDim: "#1f385c",
   red: "#F85149",
   redDim: "#5c1d1a",
-  green: "#56ef5c",
+  green: "#3FB950",
   greenDim: "#1a5c1f",
-  amber: "#FFB020",
+  amber: "#F0A500",
+  amberDim: "#7A5200",
+  teal: "#39D5C6",
 };
 
 async function parseJsonResponse(res) {
@@ -92,7 +98,7 @@ function TypewriterText({ text, speed = 20, style, cursorColor = C.amber }) {
 
 export default function SafeNavigationScreen() {
   const [apiUrl, setApiUrl] = useState(DEFAULT_SAFE_ROUTE_API_URL);
-  
+
   // Location States
   const [currentLocation, setCurrentLocation] = useState(null);
   const [locationLoading, setLocationLoading] = useState(false);
@@ -147,12 +153,12 @@ export default function SafeNavigationScreen() {
   const stopSpeech = () => {
     try {
       Speech.stop();
-    } catch (e) {}
+    } catch (e) { }
     try {
       if (typeof window !== "undefined" && "speechSynthesis" in window) {
         window.speechSynthesis.cancel();
       }
-    } catch (e) {}
+    } catch (e) { }
   };
 
   const speakText = (text) => {
@@ -219,7 +225,10 @@ export default function SafeNavigationScreen() {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== "granted") {
         if (showError) {
-          Alert.alert("Permission Denied", "Location permission is required for safe navigation.");
+          Alert.alert(
+            "Permission Denied",
+            "Location permission is required for safe navigation.",
+          );
         }
         return false;
       }
@@ -236,15 +245,18 @@ export default function SafeNavigationScreen() {
             setOriginQuery("My Current Location");
           }
           if (centerMap && mapRef.current) {
-            mapRef.current.animateToRegion({
-              latitude: coords.lat,
-              longitude: coords.lon,
-              latitudeDelta: 0.05,
-              longitudeDelta: 0.05,
-            }, 600);
+            mapRef.current.animateToRegion(
+              {
+                latitude: coords.lat,
+                longitude: coords.lon,
+                latitudeDelta: 0.05,
+                longitudeDelta: 0.05,
+              },
+              600,
+            );
           }
         }
-      } catch (e) {}
+      } catch (e) { }
 
       const posPromise = Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.High,
@@ -253,9 +265,13 @@ export default function SafeNavigationScreen() {
         setTimeout(() => reject(new Error("Timeout")), 4500),
       );
 
-      const loc = await Promise.race([posPromise, timeoutPromise]).catch(async () => {
-        return await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-      });
+      const loc = await Promise.race([posPromise, timeoutPromise]).catch(
+        async () => {
+          return await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.Balanced,
+          });
+        },
+      );
 
       if (loc?.coords) {
         const coords = {
@@ -267,19 +283,25 @@ export default function SafeNavigationScreen() {
           setOriginQuery("My Current Location");
         }
         if (centerMap && mapRef.current) {
-          mapRef.current.animateToRegion({
-            latitude: coords.lat,
-            longitude: coords.lon,
-            latitudeDelta: 0.04,
-            longitudeDelta: 0.04,
-          }, 800);
+          mapRef.current.animateToRegion(
+            {
+              latitude: coords.lat,
+              longitude: coords.lon,
+              latitudeDelta: 0.04,
+              longitudeDelta: 0.04,
+            },
+            800,
+          );
         }
         return true;
       }
       return false;
     } catch (err) {
       if (showError) {
-        Alert.alert("Location Error", "Could not fetch current location. Please check GPS settings.");
+        Alert.alert(
+          "Location Error",
+          "Could not fetch current location. Please check GPS settings.",
+        );
       }
       return false;
     } finally {
@@ -300,9 +322,16 @@ export default function SafeNavigationScreen() {
       return;
     }
 
-    const query = activeSearchField === "origin" ? originQuery.trim() : destinationQuery.trim();
+    const query =
+      activeSearchField === "origin"
+        ? originQuery.trim()
+        : destinationQuery.trim();
 
-    if (activeSearchField === "origin" && !useCustomOrigin && query === "My Current Location") {
+    if (
+      activeSearchField === "origin" &&
+      !useCustomOrigin &&
+      query === "My Current Location"
+    ) {
       setSearchResults([]);
       setSearchLoading(false);
       return;
@@ -329,8 +358,9 @@ export default function SafeNavigationScreen() {
       );
       const data = await parseJsonResponse(res);
       if (!res.ok) throw new Error(data?.detail || "Location search failed.");
-      
-      const currentQ = field === "origin" ? originQuery.trim() : destinationQuery.trim();
+
+      const currentQ =
+        field === "origin" ? originQuery.trim() : destinationQuery.trim();
       if (query === currentQ && activeSearchField === field) {
         setSearchResults(Array.isArray(data?.results) ? data.results : []);
       }
@@ -393,11 +423,12 @@ export default function SafeNavigationScreen() {
   // Periodic Model Re-run Engine during Active Navigation
   useEffect(() => {
     if (isNavigating && effectiveOrigin && destination) {
-      const rerunMinutes = parseInt(safeRouteSettings.safeRouteRerunMin, 10) || 10;
+      const rerunMinutes =
+        parseInt(safeRouteSettings.safeRouteRerunMin, 10) || 10;
       const intervalMs = rerunMinutes * 60 * 1000;
 
       if (safeRouteSettings.safeRouteSpeak && !isMuted && selectedRoute) {
-        const speechMsg = `Starting navigation. ${selectedRoute.routemaster_recommendations?.[0] || 'Drive safely.'}`;
+        const speechMsg = `Starting navigation. ${selectedRoute.routemaster_recommendations?.[0] || "Drive safely."}`;
         speakText(speechMsg);
       }
 
@@ -420,7 +451,9 @@ export default function SafeNavigationScreen() {
             setRerouteAlert(alertMsg);
 
             if (safeRouteSettings.safeRouteSpeak && !isMuted) {
-              const advice = data.safe_route.routemaster_recommendations?.[0] || "Route updated for optimal safety.";
+              const advice =
+                data.safe_route.routemaster_recommendations?.[0] ||
+                "Route updated for optimal safety.";
               speakText(`Attention driver. ${advice}`);
             }
           }
@@ -443,21 +476,30 @@ export default function SafeNavigationScreen() {
     };
   }, [isNavigating, effectiveOrigin, destination, safeRouteSettings, isMuted]);
 
+  // Stop speech on screen unmount
+  useEffect(() => {
+    return () => {
+      stopSpeech();
+    };
+  }, []);
+
   // Active Navigation Location Watcher
   useEffect(() => {
     let subscription = null;
+    let isMounted = true;
     if (isNavigating) {
       (async () => {
         try {
           const { status } = await Location.requestForegroundPermissionsAsync();
-          if (status !== "granted") return;
-          subscription = await Location.watchPositionAsync(
+          if (status !== "granted" || !isMounted) return;
+          const sub = await Location.watchPositionAsync(
             {
               accuracy: Location.Accuracy.BestForNavigation,
               timeInterval: 2000,
               distanceInterval: 5,
             },
             (loc) => {
+              if (!isMounted) return;
               const newLoc = {
                 lat: Number(loc.coords.latitude.toFixed(6)),
                 lon: Number(loc.coords.longitude.toFixed(6)),
@@ -465,12 +507,18 @@ export default function SafeNavigationScreen() {
               setCurrentLocation(newLoc);
             },
           );
+          if (!isMounted) {
+            sub.remove();
+          } else {
+            subscription = sub;
+          }
         } catch (e) {
           console.warn("Location watch error:", e);
         }
       })();
     }
     return () => {
+      isMounted = false;
       if (subscription) subscription.remove();
     };
   }, [isNavigating]);
@@ -480,12 +528,18 @@ export default function SafeNavigationScreen() {
     if (!effectiveOrigin?.lat || !effectiveOrigin?.lon) {
       const ok = await detectCurrentLocation(true, false);
       if (!ok) {
-        Alert.alert("Origin Required", "Please acquire GPS location or select a custom origin location.");
+        Alert.alert(
+          "Origin Required",
+          "Please acquire GPS location or select a custom origin location.",
+        );
         return;
       }
     }
     if (!destination?.lat || !destination?.lon) {
-      Alert.alert("Destination Required", "Please type and select a destination from suggestions.");
+      Alert.alert(
+        "Destination Required",
+        "Please type and select a destination from suggestions.",
+      );
       return;
     }
 
@@ -508,8 +562,14 @@ export default function SafeNavigationScreen() {
 
       if (data?.safe_route?.coordinates?.length && mapRef.current) {
         mapRef.current.fitToCoordinates(
-          data.safe_route.coordinates.map((c) => ({ latitude: c.lat, longitude: c.lon })),
-          { edgePadding: { top: 160, right: 60, bottom: 280, left: 60 }, animated: true },
+          data.safe_route.coordinates.map((c) => ({
+            latitude: c.lat,
+            longitude: c.lon,
+          })),
+          {
+            edgePadding: { top: 160, right: 60, bottom: 280, left: 60 },
+            animated: true,
+          },
         );
       }
     } catch (err) {
@@ -583,12 +643,14 @@ export default function SafeNavigationScreen() {
     return {
       latitude: 6.9271,
       longitude: 79.8612,
-      latitudeDelta: 0.20,
-      longitudeDelta: 0.20,
+      latitudeDelta: 0.2,
+      longitudeDelta: 0.2,
     };
   }, [selectedRoute, currentLocation, effectiveOrigin, isNavigating]);
 
-  // In-Drive Navigation Full-Screen View
+  // ═══════════════════════════════════════════════════════════════════════════
+  // IN-DRIVE NAVIGATION FULL-SCREEN HUD VIEW
+  // ═══════════════════════════════════════════════════════════════════════════
   if (isNavigating && selectedRoute) {
     return (
       <View style={styles.fullScreenContainer}>
@@ -617,7 +679,10 @@ export default function SafeNavigationScreen() {
           {result?.flooded_areas?.slice(0, 40).map((zone) => (
             <Circle
               key={`nav-zone-${zone.id}`}
-              center={{ latitude: zone.centroid.lat, longitude: zone.centroid.lon }}
+              center={{
+                latitude: zone.centroid.lat,
+                longitude: zone.centroid.lon,
+              }}
               radius={140}
               fillColor="rgba(248,81,73,0.3)"
               strokeColor="rgba(248,81,73,0.85)"
@@ -625,29 +690,43 @@ export default function SafeNavigationScreen() {
           ))}
 
           {/* Rain Overlay */}
-          {showRainOverlay && result?.rainfall_areas?.map((area) => (
-            <React.Fragment key={`nav-rain-${area.id}`}>
-              <Circle
-                center={{ latitude: area.center.lat, longitude: area.center.lon }}
-                radius={area.radius}
-                fillColor="rgba(88,166,255,0.15)"
-                strokeColor="rgba(88,166,255,0.5)"
-              />
-              <Marker
-                coordinate={{ latitude: area.center.lat, longitude: area.center.lon }}
-                title="Rainfall Zone"
-                description={`Precipitation: ${area.intensity} mm/h`}
-              >
-                <View style={styles.rainMarkerBadge}>
-                  <MaterialCommunityIcons name="weather-pouring" size={14} color="#FFF" />
-                </View>
-              </Marker>
-            </React.Fragment>
-          ))}
+          {showRainOverlay &&
+            result?.rainfall_areas?.map((area) => (
+              <React.Fragment key={`nav-rain-${area.id}`}>
+                <Circle
+                  center={{
+                    latitude: area.center.lat,
+                    longitude: area.center.lon,
+                  }}
+                  radius={area.radius}
+                  fillColor="rgba(88,166,255,0.15)"
+                  strokeColor="rgba(88,166,255,0.5)"
+                />
+                <Marker
+                  coordinate={{
+                    latitude: area.center.lat,
+                    longitude: area.center.lon,
+                  }}
+                  title="Rainfall Zone"
+                  description={`Precipitation: ${area.intensity} mm/h`}
+                >
+                  <View style={styles.rainMarkerBadge}>
+                    <MaterialCommunityIcons
+                      name="weather-pouring"
+                      size={14}
+                      color="#FFF"
+                    />
+                  </View>
+                </Marker>
+              </React.Fragment>
+            ))}
 
           {!!destination && (
             <Marker
-              coordinate={{ latitude: destination.lat, longitude: destination.lon }}
+              coordinate={{
+                latitude: destination.lat,
+                longitude: destination.lon,
+              }}
               title="Destination"
             />
           )}
@@ -655,27 +734,53 @@ export default function SafeNavigationScreen() {
 
         {/* Navigation Banner Alert */}
         {rerouteAlert && (
-          <View style={styles.rerouteBanner}>
+          <LinearGradient
+            colors={["#241B08", "#1A1305"]}
+            style={styles.rerouteBanner}
+          >
             <MaterialCommunityIcons name="sync" size={18} color={C.amber} />
             <Text style={styles.rerouteBannerText}>{rerouteAlert}</Text>
-          </View>
+          </LinearGradient>
         )}
 
-        {/* Navigation Dashboard Dock Overlay */}
-        <View style={styles.navOverlayDock}>
+        {/* Navigation Dashboard Cockpit Dock Overlay */}
+        <LinearGradient
+          colors={["rgba(22, 27, 34, 0.98)", "rgba(13, 17, 23, 0.99)"]}
+          style={styles.navOverlayDock}
+        >
           <View style={styles.dockHeaderRow}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.dockTitle}>🛡️ Geonix Safe Navigation</Text>
-              <Text style={[styles.dockSafetyBadge, { color: selectedRoute.type === "safe" ? C.green : C.red }]}>
-                {selectedRoute.type === "safe" ? "🟢 Safest Route Active" : "🔴 High Risk Route"} ({Math.round((1 - selectedRoute.risk_score) * 100)}% Safety Rating)
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                <MaterialCommunityIcons
+                  name="shield-check"
+                  size={17}
+                  color={C.amber}
+                />
+                <Text style={styles.dockTitle}>Geonix Safe Navigation</Text>
+              </View>
+              <Text
+                style={[
+                  styles.dockSafetyBadge,
+                  {
+                    color: selectedRoute.type === "safe" ? C.green : C.red,
+                  },
+                ]}
+              >
+                {selectedRoute.type === "safe"
+                  ? `🟢 Safest AI Route Active · ${Math.round((1 - selectedRoute.risk_score) * 100)}% Safety`
+                  : "🔴 High Risk Route"}
               </Text>
             </View>
 
             {/* Mute Button + Voice Test Button */}
             <View style={{ flexDirection: "row", gap: 6, alignItems: "center" }}>
               <TouchableOpacity
-                style={[styles.smallMuteBtn, isMuted && styles.smallMuteBtnActive]}
+                style={[
+                  styles.smallMuteBtn,
+                  isMuted && styles.smallMuteBtnActive,
+                ]}
                 onPress={toggleMute}
+                activeOpacity={0.7}
               >
                 <MaterialCommunityIcons
                   name={isMuted ? "volume-off" : "volume-high"}
@@ -684,30 +789,44 @@ export default function SafeNavigationScreen() {
                 />
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.voiceBtn} onPress={handleSpeakTest}>
-                <MaterialCommunityIcons name="bullhorn-outline" size={15} color={C.amber} />
-                <Text style={styles.voiceBtnText}>Voice Test</Text>
+              <TouchableOpacity
+                style={styles.voiceBtn}
+                onPress={handleSpeakTest}
+                activeOpacity={0.7}
+              >
+                <MaterialCommunityIcons
+                  name="bullhorn-outline"
+                  size={14}
+                  color={C.amber}
+                />
+                <Text style={styles.voiceBtnText}>Voice</Text>
               </TouchableOpacity>
             </View>
           </View>
 
           {/* Risk Ahead Alert Box */}
-          {selectedRoute.risk_ahead_alerts && selectedRoute.risk_ahead_alerts.length > 0 && (
-            <View style={styles.riskAheadCard}>
-              <Text style={styles.riskAheadHeader}>🚨 RISK AHEAD ASSISTANT:</Text>
-              {selectedRoute.risk_ahead_alerts.map((alertItem, idx) => (
-                <Text key={`nav-alert-${idx}`} style={styles.riskAheadText}>
-                  • {alertItem.message}
-                </Text>
-              ))}
-            </View>
-          )}
+          {selectedRoute.risk_ahead_alerts &&
+            selectedRoute.risk_ahead_alerts.length > 0 && (
+              <View style={styles.riskAheadCard}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+                  <MaterialCommunityIcons name="alert-octagon" size={14} color={C.red} />
+                  <Text style={styles.riskAheadHeader}>RISK AHEAD ASSISTANT:</Text>
+                </View>
+                {selectedRoute.risk_ahead_alerts.map((alertItem, idx) => (
+                  <Text key={`nav-alert-${idx}`} style={styles.riskAheadText}>
+                    • {alertItem.message}
+                  </Text>
+                ))}
+              </View>
+            )}
 
           {/* Weather Telemetry Row */}
           {result?.weather && (
             <View style={styles.telemetryRow}>
               <View style={styles.telemetryItem}>
-                <Text style={styles.telemetryVal}>{result.weather.temperature.toFixed(1)}°C</Text>
+                <Text style={styles.telemetryVal}>
+                  {result.weather.temperature.toFixed(1)}°C
+                </Text>
                 <Text style={styles.telemetrySub}>Temp</Text>
               </View>
               <View style={styles.telemetryItem}>
@@ -715,40 +834,81 @@ export default function SafeNavigationScreen() {
                 <Text style={styles.telemetrySub}>Humidity</Text>
               </View>
               <View style={styles.telemetryItem}>
-                <Text style={styles.telemetryVal}>{result.weather.rainfall.toFixed(1)} mm</Text>
+                <Text style={styles.telemetryVal}>
+                  {result.weather.rainfall.toFixed(1)} mm
+                </Text>
                 <Text style={styles.telemetrySub}>Rain</Text>
               </View>
               <View style={styles.telemetryItem}>
-                <Text style={styles.telemetryVal}>{result.weather.wind_speed.toFixed(1)} km/h</Text>
+                <Text style={styles.telemetryVal}>
+                  {result.weather.wind_speed.toFixed(1)} km/h
+                </Text>
                 <Text style={styles.telemetrySub}>Wind</Text>
               </View>
             </View>
           )}
 
           {/* RouteMaster AI Advice */}
-          {selectedRoute.routemaster_recommendations && selectedRoute.routemaster_recommendations.length > 0 && (
-            <View style={styles.aiAdviceBox}>
-              <Text style={styles.aiAdviceHeader}>🤖 RouteMaster AI Safety Advice:</Text>
-              <ScrollView style={{ maxHeight: 75 }} nestedScrollEnabled={true} keyboardShouldPersistTaps="handled">
-                {selectedRoute.routemaster_recommendations.map((rec, idx) => (
-                  <View key={`nav-rec-${idx}`} style={{ flexDirection: "row", marginTop: 3 }}>
-                    <Text style={{ color: C.amber, fontSize: 10, marginRight: 4, marginTop: 1 }}>•</Text>
-                    <TypewriterText text={rec} speed={18} style={styles.aiAdviceText} cursorColor={C.amber} />
-                  </View>
-                ))}
-              </ScrollView>
-            </View>
-          )}
+          {selectedRoute.routemaster_recommendations &&
+            selectedRoute.routemaster_recommendations.length > 0 && (
+              <View style={styles.aiAdviceBox}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 5, marginBottom: 2 }}>
+                  <MaterialCommunityIcons name="robot-outline" size={13} color={C.amber} />
+                  <Text style={styles.aiAdviceHeader}>
+                    RouteMaster AI Driver Guidance:
+                  </Text>
+                </View>
+                <ScrollView
+                  style={{ maxHeight: 75 }}
+                  nestedScrollEnabled={true}
+                  keyboardShouldPersistTaps="handled"
+                >
+                  {selectedRoute.routemaster_recommendations.map((rec, idx) => (
+                    <View
+                      key={`nav-rec-${idx}`}
+                      style={{ flexDirection: "row", marginTop: 3 }}
+                    >
+                      <Text
+                        style={{
+                          color: C.amber,
+                          fontSize: 10,
+                          marginRight: 4,
+                          marginTop: 1,
+                        }}
+                      >
+                        •
+                      </Text>
+                      <TypewriterText
+                        text={rec}
+                        speed={18}
+                        style={styles.aiAdviceText}
+                        cursorColor={C.amber}
+                      />
+                    </View>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
 
-          <TouchableOpacity style={styles.exitNavBtn} onPress={() => { stopSpeech(); setIsNavigating(false); }}>
+          <TouchableOpacity
+            style={styles.exitNavBtn}
+            onPress={() => {
+              stopSpeech();
+              setIsNavigating(false);
+            }}
+            activeOpacity={0.8}
+          >
+            <MaterialCommunityIcons name="close-circle-outline" size={16} color={C.red} />
             <Text style={styles.exitNavText}>EXIT NAVIGATION</Text>
           </TouchableOpacity>
-        </View>
+        </LinearGradient>
       </View>
     );
   }
 
-  // Modern Unique Map UI View (Non-Navigation Mode) with KeyboardAvoidingView
+  // ═══════════════════════════════════════════════════════════════════════════
+  // STANDARD INTERACTIVE MAP & ROUTE PLANNING VIEW
+  // ═══════════════════════════════════════════════════════════════════════════
   return (
     <KeyboardAvoidingView
       style={styles.fullScreenContainer}
@@ -756,7 +916,7 @@ export default function SafeNavigationScreen() {
     >
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
         <View style={StyleSheet.absoluteFillObject}>
-          {/* Immersive Full Screen Background Map */}
+          {/* Interactive Background Map */}
           <MapView
             ref={mapRef}
             style={StyleSheet.absoluteFillObject}
@@ -773,16 +933,26 @@ export default function SafeNavigationScreen() {
           >
             {safeRoute?.coordinates?.length > 1 && (
               <Polyline
-                coordinates={safeRoute.coordinates.map((p) => ({ latitude: p.lat, longitude: p.lon }))}
-                strokeColor={selectedRoute?.id === safeRoute.id ? C.green : "#2B7A3F"}
+                coordinates={safeRoute.coordinates.map((p) => ({
+                  latitude: p.lat,
+                  longitude: p.lon,
+                }))}
+                strokeColor={
+                  selectedRoute?.id === safeRoute.id ? C.green : "#2B7A3F"
+                }
                 strokeWidth={selectedRoute?.id === safeRoute.id ? 6 : 4}
               />
             )}
 
             {dangerousRoute?.coordinates?.length > 1 && (
               <Polyline
-                coordinates={dangerousRoute.coordinates.map((p) => ({ latitude: p.lat, longitude: p.lon }))}
-                strokeColor={selectedRoute?.id === dangerousRoute.id ? C.red : "#A33733"}
+                coordinates={dangerousRoute.coordinates.map((p) => ({
+                  latitude: p.lat,
+                  longitude: p.lon,
+                }))}
+                strokeColor={
+                  selectedRoute?.id === dangerousRoute.id ? C.red : "#A33733"
+                }
                 strokeWidth={selectedRoute?.id === dangerousRoute.id ? 6 : 4}
               />
             )}
@@ -790,36 +960,53 @@ export default function SafeNavigationScreen() {
             {result?.flooded_areas?.slice(0, 40).map((zone) => (
               <Circle
                 key={zone.id}
-                center={{ latitude: zone.centroid.lat, longitude: zone.centroid.lon }}
+                center={{
+                  latitude: zone.centroid.lat,
+                  longitude: zone.centroid.lon,
+                }}
                 radius={140}
                 fillColor="rgba(248,81,73,0.25)"
                 strokeColor="rgba(248,81,73,0.7)"
               />
             ))}
 
-            {showRainOverlay && result?.rainfall_areas?.map((area) => (
-              <React.Fragment key={`rain-group-${area.id}`}>
-                <Circle
-                  center={{ latitude: area.center.lat, longitude: area.center.lon }}
-                  radius={area.radius}
-                  fillColor="rgba(88,166,255,0.15)"
-                  strokeColor="rgba(88,166,255,0.5)"
-                />
-                <Marker
-                  coordinate={{ latitude: area.center.lat, longitude: area.center.lon }}
-                  title="Active Rain Zone"
-                  description={`Rainfall: ${area.intensity} mm/h`}
-                >
-                  <View style={styles.rainMarkerBadge}>
-                    <MaterialCommunityIcons name="weather-pouring" size={14} color="#FFFFFF" />
-                  </View>
-                </Marker>
-              </React.Fragment>
-            ))}
+            {showRainOverlay &&
+              result?.rainfall_areas?.map((area) => (
+                <React.Fragment key={`rain-group-${area.id}`}>
+                  <Circle
+                    center={{
+                      latitude: area.center.lat,
+                      longitude: area.center.lon,
+                    }}
+                    radius={area.radius}
+                    fillColor="rgba(88,166,255,0.15)"
+                    strokeColor="rgba(88,166,255,0.5)"
+                  />
+                  <Marker
+                    coordinate={{
+                      latitude: area.center.lat,
+                      longitude: area.center.lon,
+                    }}
+                    title="Active Rain Zone"
+                    description={`Rainfall: ${area.intensity} mm/h`}
+                  >
+                    <View style={styles.rainMarkerBadge}>
+                      <MaterialCommunityIcons
+                        name="weather-pouring"
+                        size={14}
+                        color="#FFFFFF"
+                      />
+                    </View>
+                  </Marker>
+                </React.Fragment>
+              ))}
 
             {!!effectiveOrigin && (
               <Marker
-                coordinate={{ latitude: effectiveOrigin.lat, longitude: effectiveOrigin.lon }}
+                coordinate={{
+                  latitude: effectiveOrigin.lat,
+                  longitude: effectiveOrigin.lon,
+                }}
                 title={effectiveOrigin.label || "Start Location"}
                 pinColor="green"
               />
@@ -827,7 +1014,10 @@ export default function SafeNavigationScreen() {
 
             {!!destination && (
               <Marker
-                coordinate={{ latitude: destination.lat, longitude: destination.lon }}
+                coordinate={{
+                  latitude: destination.lat,
+                  longitude: destination.lon,
+                }}
                 title={destination.label || "Destination"}
                 pinColor="red"
               />
@@ -836,16 +1026,25 @@ export default function SafeNavigationScreen() {
         </View>
       </TouchableWithoutFeedback>
 
-      {/* Floating Top Search Header Card */}
+      {/* ── Modern Floating Top Search Header ─────────────────────────────────── */}
       <View style={styles.topFloatingHeader}>
         {/* Brand Bar */}
-        <View style={styles.titlePillRow}>
+        <LinearGradient
+          colors={["rgba(27, 34, 45, 0.96)", "rgba(19, 24, 32, 0.96)"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.titlePillRow}
+        >
           <View style={styles.brandIconWrap}>
-            <MaterialCommunityIcons name="shield-check" size={18} color={C.amber} />
+            <MaterialCommunityIcons
+              name="shield-check"
+              size={18}
+              color={C.amber}
+            />
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.brandTitle}>Geonix Safe Route</Text>
-            <Text style={styles.brandSub}>
+            <Text style={styles.brandSub} numberOfLines={1}>
               {effectiveOrigin
                 ? `Start: ${effectiveOrigin.label}`
                 : "Acquiring GPS location..."}
@@ -856,6 +1055,7 @@ export default function SafeNavigationScreen() {
           <TouchableOpacity
             style={[styles.topMuteBtn, isMuted && styles.topMuteBtnActive]}
             onPress={toggleMute}
+            activeOpacity={0.7}
           >
             <MaterialCommunityIcons
               name={isMuted ? "volume-off" : "volume-high"}
@@ -863,16 +1063,22 @@ export default function SafeNavigationScreen() {
               color={isMuted ? C.red : C.amber}
             />
           </TouchableOpacity>
-        </View>
+        </LinearGradient>
 
         {/* Dual Location Inputs Container */}
         <View style={styles.dualSearchCard}>
           {/* Origin Input Row */}
           <View style={styles.inputRow}>
-            <MaterialCommunityIcons name="map-marker" size={18} color={C.green} style={{ marginLeft: 10 }} />
+            <View style={styles.inputIconCircle}>
+              <MaterialCommunityIcons
+                name="crosshairs-gps"
+                size={14}
+                color={C.green}
+              />
+            </View>
             <TextInput
               style={styles.searchInput}
-              placeholder="Origin: Type start location..."
+              placeholder="Origin: Start location..."
               placeholderTextColor={C.sub}
               value={originQuery}
               onFocus={() => setActiveSearchField("origin")}
@@ -885,19 +1091,32 @@ export default function SafeNavigationScreen() {
               autoCapitalize="words"
             />
             {useCustomOrigin ? (
-              <TouchableOpacity style={styles.gpsResetBtn} onPress={resetToGpsOrigin} title="Use GPS">
-                <MaterialCommunityIcons name="crosshairs-gps" size={16} color={C.amber} />
+              <TouchableOpacity
+                style={styles.gpsResetBtn}
+                onPress={resetToGpsOrigin}
+                activeOpacity={0.7}
+              >
+                <MaterialCommunityIcons
+                  name="restore"
+                  size={16}
+                  color={C.amber}
+                />
               </TouchableOpacity>
             ) : (
               <TouchableOpacity
                 style={styles.gpsResetBtn}
                 onPress={() => detectCurrentLocation(true, true)}
                 disabled={locationLoading}
+                activeOpacity={0.7}
               >
                 {locationLoading ? (
                   <ActivityIndicator size="small" color={C.amber} />
                 ) : (
-                  <MaterialCommunityIcons name="crosshairs-gps" size={16} color={C.green} />
+                  <MaterialCommunityIcons
+                    name="target"
+                    size={16}
+                    color={C.green}
+                  />
                 )}
               </TouchableOpacity>
             )}
@@ -906,15 +1125,29 @@ export default function SafeNavigationScreen() {
           {/* Swap & Divider Controls */}
           <View style={styles.swapDividerRow}>
             <View style={styles.dividerLine} />
-            <TouchableOpacity style={styles.swapBtn} onPress={swapOriginAndDestination}>
-              <MaterialCommunityIcons name="swap-vertical" size={18} color={C.amber} />
+            <TouchableOpacity
+              style={styles.swapBtn}
+              onPress={swapOriginAndDestination}
+              activeOpacity={0.75}
+            >
+              <MaterialCommunityIcons
+                name="swap-vertical"
+                size={16}
+                color={C.amber}
+              />
             </TouchableOpacity>
             <View style={styles.dividerLine} />
           </View>
 
           {/* Destination Input Row */}
           <View style={styles.inputRow}>
-            <MaterialCommunityIcons name="flag-checkered" size={18} color={C.red} style={{ marginLeft: 10 }} />
+            <View style={[styles.inputIconCircle, { backgroundColor: C.red + "1A", borderColor: C.red + "4D" }]}>
+              <MaterialCommunityIcons
+                name="flag-checkered"
+                size={14}
+                color={C.red}
+              />
+            </View>
             <TextInput
               style={styles.searchInput}
               placeholder="Destination: Type end location..."
@@ -936,15 +1169,35 @@ export default function SafeNavigationScreen() {
                   setDestination(null);
                 }}
               >
-                <MaterialCommunityIcons name="close-circle" size={16} color={C.sub} />
+                <MaterialCommunityIcons
+                  name="close-circle"
+                  size={16}
+                  color={C.sub}
+
+                />
               </TouchableOpacity>
             )}
-            <TouchableOpacity style={styles.findRouteBtn} onPress={fetchRoutes} disabled={loading}>
-              {loading ? (
-                <ActivityIndicator size="small" color={C.bg} />
-              ) : (
-                <Text style={styles.findRouteBtnText}>GO</Text>
-              )}
+            <TouchableOpacity
+              style={styles.findRouteBtn}
+              onPress={fetchRoutes}
+              disabled={loading}
+              activeOpacity={0.8}
+            >
+              <LinearGradient
+                colors={[C.amber, "#D48B00"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.findRouteBtnGradient}
+              >
+                {loading ? (
+                  <ActivityIndicator size="small" color="#000" />
+                ) : (
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
+                    <Text style={styles.findRouteBtnText}>GO</Text>
+                    <Ionicons name="arrow-forward" size={13} color="#000" />
+                  </View>
+                )}
+              </LinearGradient>
             </TouchableOpacity>
           </View>
         </View>
@@ -953,6 +1206,7 @@ export default function SafeNavigationScreen() {
         {searchResults.length > 0 && activeSearchField && (
           <View style={styles.suggestionDropdown}>
             <View style={styles.suggestionHeaderPill}>
+              <Feather name="search" size={12} color={C.amber} />
               <Text style={styles.suggestionHeaderText}>
                 Select {activeSearchField === "origin" ? "Origin" : "Destination"}:
               </Text>
@@ -967,13 +1221,20 @@ export default function SafeNavigationScreen() {
                   key={`search-item-${item.id || idx}`}
                   style={styles.suggestionItem}
                   onPress={() => selectLocationSuggestion(item)}
+                  activeOpacity={0.7}
                 >
                   <MaterialCommunityIcons
-                    name={activeSearchField === "origin" ? "map-marker" : "flag-checkered"}
-                    size={14}
+                    name={
+                      activeSearchField === "origin"
+                        ? "map-marker"
+                        : "flag-checkered"
+                    }
+                    size={15}
                     color={activeSearchField === "origin" ? C.green : C.red}
                   />
-                  <Text numberOfLines={1} style={styles.suggestionText}>{item.label}</Text>
+                  <Text numberOfLines={1} style={styles.suggestionText}>
+                    {item.label}
+                  </Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -983,14 +1244,24 @@ export default function SafeNavigationScreen() {
 
       {/* Floating Side Action Buttons (FABs) */}
       <View style={styles.rightFabStack}>
-        <TouchableOpacity style={styles.fabBtn} onPress={resetToGpsOrigin}>
-          <MaterialCommunityIcons name="target" size={18} color={C.amber} />
+        <TouchableOpacity
+          style={styles.fabBtn}
+          onPress={resetToGpsOrigin}
+          activeOpacity={0.75}
+        >
+          <MaterialCommunityIcons name="target" size={19} color={C.amber} />
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.fabBtn} onPress={cycleMapType}>
+        <TouchableOpacity
+          style={styles.fabBtn}
+          onPress={cycleMapType}
+          activeOpacity={0.75}
+        >
           <MaterialCommunityIcons
-            name={MAP_TYPES.find((t) => t.type === mapType)?.icon || "layers-outline"}
-            size={18}
+            name={
+              MAP_TYPES.find((t) => t.type === mapType)?.icon || "layers-outline"
+            }
+            size={19}
             color={C.amber}
           />
         </TouchableOpacity>
@@ -998,27 +1269,40 @@ export default function SafeNavigationScreen() {
         <TouchableOpacity
           style={[styles.fabBtn, showRainOverlay && styles.fabBtnActive]}
           onPress={() => setShowRainOverlay(!showRainOverlay)}
+          activeOpacity={0.75}
         >
           <MaterialCommunityIcons
             name="weather-pouring"
-            size={18}
+            size={19}
             color={showRainOverlay ? C.amber : C.sub}
           />
         </TouchableOpacity>
       </View>
 
-      {/* Floating Bottom Sheet Assessment Panel */}
-      <View style={[styles.bottomSheetCard, !bottomCardExpanded && styles.bottomSheetCardCollapsed]}>
+      {/* ── Modern Floating Bottom Sheet Assessment Panel ──────────────────────── */}
+      <View
+        style={[
+          styles.bottomSheetCard,
+          !bottomCardExpanded && styles.bottomSheetCardCollapsed,
+        ]}
+      >
         <TouchableOpacity
           style={styles.sheetHandleWrap}
           onPress={() => setBottomCardExpanded(!bottomCardExpanded)}
           activeOpacity={0.8}
         >
           <View style={styles.sheetHandleBar} />
-          <View style={{ flexDirection: "row", justifyContent: "space-between", width: "100%", alignItems: "center", marginTop: 4 }}>
-            <Text style={styles.sheetHeaderTitle}>
-              {result ? "Route Safety Assessment" : "Safe Navigation Control"}
-            </Text>
+          <View style={styles.sheetHeaderRow}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+              <MaterialCommunityIcons
+                name={result ? "map-check" : "compass-outline"}
+                size={17}
+                color={C.amber}
+              />
+              <Text style={styles.sheetHeaderTitle}>
+                {result ? "Route Safety Assessment" : "Safe Navigation Control"}
+              </Text>
+            </View>
             <MaterialCommunityIcons
               name={bottomCardExpanded ? "chevron-down" : "chevron-up"}
               size={20}
@@ -1038,19 +1322,47 @@ export default function SafeNavigationScreen() {
             {result?.weather && (
               <View style={styles.weatherMetricsRow}>
                 <View style={styles.metricPill}>
-                  <Text style={styles.metricVal}>{result.weather.temperature.toFixed(1)}°C</Text>
+                  <MaterialCommunityIcons
+                    name="thermometer"
+                    size={14}
+                    color={C.amber}
+                  />
+                  <Text style={styles.metricVal}>
+                    {result.weather.temperature.toFixed(1)}°C
+                  </Text>
                   <Text style={styles.metricSub}>Temp</Text>
                 </View>
                 <View style={styles.metricPill}>
-                  <Text style={styles.metricVal}>{result.weather.humidity}%</Text>
+                  <MaterialCommunityIcons
+                    name="water-percent"
+                    size={14}
+                    color={C.teal}
+                  />
+                  <Text style={styles.metricVal}>
+                    {result.weather.humidity}%
+                  </Text>
                   <Text style={styles.metricSub}>Humidity</Text>
                 </View>
                 <View style={styles.metricPill}>
-                  <Text style={styles.metricVal}>{result.weather.rainfall.toFixed(1)} mm</Text>
+                  <MaterialCommunityIcons
+                    name="weather-pouring"
+                    size={14}
+                    color={C.blue}
+                  />
+                  <Text style={styles.metricVal}>
+                    {result.weather.rainfall.toFixed(1)} mm
+                  </Text>
                   <Text style={styles.metricSub}>Rain</Text>
                 </View>
                 <View style={styles.metricPill}>
-                  <Text style={styles.metricVal}>{result.weather.wind_speed.toFixed(1)} km/h</Text>
+                  <MaterialCommunityIcons
+                    name="weather-windy"
+                    size={14}
+                    color={C.green}
+                  />
+                  <Text style={styles.metricVal}>
+                    {result.weather.wind_speed.toFixed(1)} km/h
+                  </Text>
                   <Text style={styles.metricSub}>Wind</Text>
                 </View>
               </View>
@@ -1058,53 +1370,154 @@ export default function SafeNavigationScreen() {
 
             {/* Main Action Button */}
             {result?.safe_route ? (
-              <TouchableOpacity style={styles.startNavCta} onPress={handleGoSafe}>
-                <MaterialCommunityIcons name="navigation" size={18} color={C.bg} />
-                <Text style={styles.startNavCtaText}>START SAFE NAVIGATION</Text>
+              <TouchableOpacity
+                style={styles.startNavCta}
+                onPress={handleGoSafe}
+                activeOpacity={0.85}
+              >
+                <LinearGradient
+                  colors={[C.green, "#2EA043"]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.startNavCtaGradient}
+                >
+                  <MaterialCommunityIcons
+                    name="navigation"
+                    size={19}
+                    color="#000"
+                  />
+                  <Text style={styles.startNavCtaText}>
+                    START SAFE NAVIGATION
+                  </Text>
+                </LinearGradient>
               </TouchableOpacity>
             ) : (
-              <TouchableOpacity style={styles.primaryFindBtn} onPress={fetchRoutes} disabled={loading}>
-                {loading ? (
-                  <ActivityIndicator color={C.bg} />
-                ) : (
-                  <Text style={styles.primaryFindBtnText}>FIND SAFEST ROUTE</Text>
-                )}
+              <TouchableOpacity
+                style={styles.primaryFindBtn}
+                onPress={fetchRoutes}
+                disabled={loading}
+                activeOpacity={0.85}
+              >
+                <LinearGradient
+                  colors={[C.amber, "#D48B00"]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.primaryFindBtnGradient}
+                >
+                  {loading ? (
+                    <ActivityIndicator color="#000" />
+                  ) : (
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                      <MaterialCommunityIcons
+                        name="radar"
+                        size={18}
+                        color="#000"
+                      />
+                      <Text style={styles.primaryFindBtnText}>
+                        FIND SAFEST ROUTE
+                      </Text>
+                    </View>
+                  )}
+                </LinearGradient>
               </TouchableOpacity>
             )}
 
             {/* Route Cards */}
-            {result?.routes?.filter((r) => r.type === "safe" || r.type === "dangerous").map((route) => (
-              <TouchableOpacity
-                key={route.id}
-                style={[
-                  styles.routeSelectCard,
-                  selectedRouteId === route.id && styles.routeSelectCardActive,
-                ]}
-                onPress={() => setSelectedRouteId(route.id)}
-              >
-                <Text style={styles.routeCardBadge}>
-                  {route.type === "safe" ? "🟢 RECOMMENDED SAFEST ROUTE" : "🔴 DANGEROUS ROUTE"}
-                </Text>
-                <Text style={styles.routeCardMeta}>
-                  {route.distance_km} km · {route.duration_in_traffic_min} min ETA · Safety Rating: {Math.round((1 - route.risk_score) * 100)}%
-                </Text>
-                <Text style={styles.routeCardSub}>
-                  Traffic roads: {route.traffic_road_count} · Flooded segments: {route.flooded_road_count}
-                </Text>
-              </TouchableOpacity>
-            ))}
+            {result?.routes
+              ?.filter((r) => r.type === "safe" || r.type === "dangerous")
+              .map((route) => {
+                const isSelected = selectedRouteId === route.id;
+                const isSafe = route.type === "safe";
+                return (
+                  <TouchableOpacity
+                    key={route.id}
+                    style={[
+                      styles.routeSelectCard,
+                      isSelected && styles.routeSelectCardActive,
+                      { borderColor: isSelected ? (isSafe ? C.green : C.red) : C.border },
+                    ]}
+                    onPress={() => setSelectedRouteId(route.id)}
+                    activeOpacity={0.8}
+                  >
+                    <View style={styles.routeCardTop}>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                        <MaterialCommunityIcons
+                          name={isSafe ? "shield-check" : "alert"}
+                          size={16}
+                          color={isSafe ? C.green : C.red}
+                        />
+                        <Text
+                          style={[
+                            styles.routeCardBadge,
+                            { color: isSafe ? C.green : C.red },
+                          ]}
+                        >
+                          {isSafe
+                            ? "RECOMMENDED SAFEST ROUTE"
+                            : "RISK ALTERNATIVE"}
+                        </Text>
+                      </View>
+                      {isSafe && (
+                        <View
+                          style={[
+                            styles.ratingPill,
+                            {
+                              backgroundColor: C.green + "1A",
+                              borderColor: C.green + "4D",
+                            },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.ratingPillText,
+                              { color: C.green },
+                            ]}
+                          >
+                            {Math.round((1 - route.risk_score) * 100)}% Safe
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+
+                    <Text style={styles.routeCardMeta}>
+                      {route.distance_km} km · {route.duration_in_traffic_min} min ETA
+                    </Text>
+                    <Text style={styles.routeCardSub}>
+                      Traffic sectors: {route.traffic_road_count} · Flooded segments:{" "}
+                      {route.flooded_road_count}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
 
             {/* Explainable Routing Details */}
             {selectedRoute && (
               <View style={styles.explainableCard}>
-                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                  <Text style={styles.explainableTitle}>Why this route?</Text>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                  }}
+                >
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                    <MaterialCommunityIcons
+                      name="lightbulb-on-outline"
+                      size={16}
+                      color={C.amber}
+                    />
+                    <Text style={styles.explainableTitle}>Why this route?</Text>
+                  </View>
 
                   {/* Mute Button + Voice Test Button */}
                   <View style={{ flexDirection: "row", gap: 6, alignItems: "center" }}>
                     <TouchableOpacity
-                      style={[styles.smallMuteBtn, isMuted && styles.smallMuteBtnActive]}
+                      style={[
+                        styles.smallMuteBtn,
+                        isMuted && styles.smallMuteBtnActive,
+                      ]}
                       onPress={toggleMute}
+                      activeOpacity={0.7}
                     >
                       <MaterialCommunityIcons
                         name={isMuted ? "volume-off" : "volume-high"}
@@ -1113,40 +1526,85 @@ export default function SafeNavigationScreen() {
                       />
                     </TouchableOpacity>
 
-                    <TouchableOpacity style={styles.voiceBtn} onPress={handleSpeakTest}>
-                      <MaterialCommunityIcons name="bullhorn-outline" size={14} color={C.amber} />
-                      <Text style={styles.voiceBtnText}>Voice Test</Text>
+                    <TouchableOpacity
+                      style={styles.voiceBtn}
+                      onPress={handleSpeakTest}
+                      activeOpacity={0.7}
+                    >
+                      <MaterialCommunityIcons
+                        name="bullhorn-outline"
+                        size={14}
+                        color={C.amber}
+                      />
+                      <Text style={styles.voiceBtnText}>Voice</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
 
                 {selectedRoute.why_this_route?.map((item, idx) => (
-                  <Text key={`why-${idx}`} style={styles.explainableItem}>
-                    {item}
-                  </Text>
+                  <View key={`why-${idx}`} style={{ flexDirection: "row", marginTop: 4, alignItems: "flex-start" }}>
+                    <Text style={{ color: C.amber, marginRight: 6 }}>✔</Text>
+                    <Text style={styles.explainableItem}>{item}</Text>
+                  </View>
                 ))}
 
-                {selectedRoute.why_not_fastest_route && selectedRoute.type === "safe" && (
-                  <View style={styles.whyNotFastestBox}>
-                    <Text style={styles.whyNotFastestTitle}>Why not the fastest route?</Text>
-                    <Text style={styles.whyNotFastestText}>{selectedRoute.why_not_fastest_route}</Text>
-                  </View>
-                )}
+                {selectedRoute.why_not_fastest_route &&
+                  selectedRoute.type === "safe" && (
+                    <View style={styles.whyNotFastestBox}>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+                        <MaterialCommunityIcons name="alert-circle-outline" size={14} color={C.red} />
+                        <Text style={styles.whyNotFastestTitle}>
+                          Why not the fastest route?
+                        </Text>
+                      </View>
+                      <Text style={styles.whyNotFastestText}>
+                        {selectedRoute.why_not_fastest_route}
+                      </Text>
+                    </View>
+                  )}
 
                 {/* RouteMaster AI Box */}
                 {selectedRoute.routemaster_recommendations?.length > 0 && (
                   <View style={styles.aiAdviceBox}>
-                    <Text style={styles.aiAdviceHeader}>🤖 RouteMaster AI Safety Advice:</Text>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 5, marginBottom: 2 }}>
+                      <MaterialCommunityIcons
+                        name="robot-outline"
+                        size={14}
+                        color={C.amber}
+                      />
+                      <Text style={styles.aiAdviceHeader}>
+                        RouteMaster AI Advisory:
+                      </Text>
+                    </View>
                     {selectedRoute.routemaster_recommendations.map((rec, idx) => (
-                      <View key={`sheet-rec-${idx}`} style={{ flexDirection: "row", marginTop: 3 }}>
-                        <Text style={{ color: C.amber, fontSize: 10, marginRight: 4, marginTop: 1 }}>•</Text>
-                        <TypewriterText text={rec} speed={18} style={styles.aiAdviceText} cursorColor={C.amber} />
+                      <View
+                        key={`sheet-rec-${idx}`}
+                        style={{ flexDirection: "row", marginTop: 3 }}
+                      >
+                        <Text
+                          style={{
+                            color: C.amber,
+                            fontSize: 10,
+                            marginRight: 4,
+                            marginTop: 1,
+                          }}
+                        >
+                          •
+                        </Text>
+                        <TypewriterText
+                          text={rec}
+                          speed={18}
+                          style={styles.aiAdviceText}
+                          cursorColor={C.amber}
+                        />
                       </View>
                     ))}
                   </View>
                 )}
               </View>
             )}
+
+            <View style={{ height: 16 }} />
           </ScrollView>
         )}
       </View>
@@ -1154,6 +1612,7 @@ export default function SafeNavigationScreen() {
   );
 }
 
+// ── Styles ────────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   fullScreenContainer: {
     flex: 1,
@@ -1172,36 +1631,40 @@ const styles = StyleSheet.create({
   titlePillRow: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(22, 27, 34, 0.94)",
     borderWidth: 1,
     borderColor: C.border,
     borderRadius: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
+    paddingHorizontal: 13,
+    paddingVertical: 10,
     gap: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 6,
   },
   brandIconWrap: {
-    width: 32,
-    height: 32,
+    width: 34,
+    height: 34,
     borderRadius: 10,
-    backgroundColor: "rgba(255, 176, 32, 0.15)",
-    borderWidth: 1,
-    borderColor: C.amber,
+    backgroundColor: C.amber + "1A",
+    borderWidth: 1.2,
+    borderColor: C.amber + "4D",
     alignItems: "center",
     justifyContent: "center",
   },
-  brandTitle: { color: C.text, fontSize: 14, fontWeight: "800" },
-  brandSub: { color: C.sub, fontSize: 10 },
+  brandTitle: { color: C.text, fontSize: 14, fontWeight: "800", letterSpacing: 0.1 },
+  brandSub: { color: C.sub, fontSize: 10.5, marginTop: 1 },
   topMuteBtn: {
-    padding: 6,
-    backgroundColor: "rgba(255, 176, 32, 0.12)",
-    borderRadius: 8,
+    padding: 7,
+    backgroundColor: C.amber + "15",
+    borderRadius: 9,
     borderWidth: 1,
-    borderColor: C.amber,
+    borderColor: C.amber + "44",
   },
   topMuteBtnActive: {
-    backgroundColor: "rgba(248, 81, 73, 0.15)",
-    borderColor: C.red,
+    backgroundColor: C.red + "18",
+    borderColor: C.red + "55",
   },
 
   // Dual Location Search Card
@@ -1209,9 +1672,14 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(22, 27, 34, 0.96)",
     borderWidth: 1,
     borderColor: C.border,
-    borderRadius: 16,
+    borderRadius: 18,
     padding: 8,
-    gap: 6,
+    gap: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 6,
   },
   inputRow: {
     flexDirection: "row",
@@ -1220,41 +1688,59 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: C.border,
     borderRadius: 12,
-    height: 42,
+    height: 44,
+    paddingHorizontal: 6,
+  },
+  inputIconCircle: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: C.green + "1A",
+    borderWidth: 1,
+    borderColor: C.green + "4D",
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: 3,
   },
   searchInput: {
     flex: 1,
     color: C.text,
-    fontSize: 12,
+    fontSize: 12.5,
     paddingHorizontal: 10,
   },
   gpsResetBtn: {
     padding: 8,
-    marginRight: 4,
+    marginRight: 2,
   },
   clearTextBtn: {
     padding: 6,
-    marginRight: 4,
+    marginRight: 2,
   },
   findRouteBtn: {
-    backgroundColor: C.amber,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    marginRight: 4,
+    borderRadius: 9,
+    overflow: "hidden",
+    marginRight: 2,
   },
-  findRouteBtnText: { color: C.bg, fontWeight: "800", fontSize: 12 },
+  findRouteBtnGradient: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  findRouteBtnText: { color: "#000", fontWeight: "800", fontSize: 12 },
 
   swapDividerRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
+    marginBottom: 6,
+    marginTop: 6,
     height: 16,
   },
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: C.border,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
   },
   swapBtn: {
     width: 28,
@@ -1262,7 +1748,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     backgroundColor: C.surfaceHi,
     borderWidth: 1,
-    borderColor: C.amber,
+    borderColor: C.amber + "66",
     alignItems: "center",
     justifyContent: "center",
     marginHorizontal: 8,
@@ -1272,26 +1758,34 @@ const styles = StyleSheet.create({
     backgroundColor: C.surface,
     borderWidth: 1,
     borderColor: C.border,
-    borderRadius: 12,
+    borderRadius: 14,
     overflow: "hidden",
     marginTop: 2,
     maxHeight: 220,
+    shadowColor: "#000",
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    elevation: 8,
   },
   suggestionHeaderPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
     backgroundColor: C.surfaceHi,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderBottomWidth: 1,
     borderBottomColor: C.border,
   },
-  suggestionHeaderText: { color: C.amber, fontSize: 10, fontWeight: "700" },
+  suggestionHeaderText: { color: C.amber, fontSize: 10.5, fontWeight: "700" },
   suggestionItem: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-    padding: 10,
+    gap: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
     borderBottomWidth: 1,
-    borderBottomColor: C.border,
+    borderBottomColor: "rgba(255, 255, 255, 0.06)",
   },
   suggestionText: { color: C.text, fontSize: 12, flex: 1 },
 
@@ -1299,23 +1793,28 @@ const styles = StyleSheet.create({
   rightFabStack: {
     position: "absolute",
     right: 14,
-    top: Platform.OS === "ios" ? 230 : 190,
+    top: Platform.OS === "ios" ? 236 : 235,
     gap: 10,
     zIndex: 20,
   },
   fabBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "rgba(22, 27, 34, 0.92)",
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: "rgba(22, 27, 34, 0.94)",
     borderWidth: 1,
     borderColor: C.border,
     alignItems: "center",
     justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.35,
+    shadowRadius: 6,
+    elevation: 5,
   },
   fabBtnActive: {
     borderColor: C.amber,
-    backgroundColor: "rgba(255, 176, 32, 0.15)",
+    backgroundColor: C.amber + "22",
   },
 
   // Floating Bottom Sheet Panel
@@ -1324,15 +1823,20 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: "rgba(22, 27, 34, 0.96)",
-    borderTopLeftRadius: 22,
-    borderTopRightRadius: 22,
+    backgroundColor: "rgba(22, 27, 34, 0.98)",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     borderWidth: 1,
     borderColor: C.border,
     maxHeight: SCREEN_HEIGHT * 0.52,
-    paddingHorizontal: 14,
+    paddingHorizontal: 16,
     paddingBottom: Platform.OS === "ios" ? 30 : 16,
     zIndex: 30,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.45,
+    shadowRadius: 14,
+    elevation: 12,
   },
   bottomSheetCardCollapsed: {
     maxHeight: 65,
@@ -1342,100 +1846,138 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   sheetHandleBar: {
-    width: 36,
+    width: 38,
     height: 4,
     borderRadius: 2,
     backgroundColor: C.border,
   },
-  sheetHeaderTitle: { color: C.text, fontSize: 13, fontWeight: "800" },
+  sheetHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    width: "100%",
+    alignItems: "center",
+    marginTop: 4,
+  },
+  sheetHeaderTitle: { color: C.text, fontSize: 13.5, fontWeight: "800", letterSpacing: 0.1 },
   sheetScroll: { marginTop: 4 },
 
   weatherMetricsRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     marginBottom: 10,
+    gap: 6,
   },
   metricPill: {
     flex: 1,
-    backgroundColor: "#0F141B",
+    backgroundColor: C.bg,
     borderWidth: 1,
     borderColor: C.border,
-    borderRadius: 10,
+    borderRadius: 12,
     alignItems: "center",
-    paddingVertical: 6,
-    marginHorizontal: 2,
+    paddingVertical: 7,
+    gap: 2,
   },
   metricVal: { color: C.text, fontSize: 12, fontWeight: "700" },
-  metricSub: { color: C.sub, fontSize: 9, marginTop: 1 },
+  metricSub: { color: C.sub, fontSize: 9.5 },
 
   startNavCta: {
+    borderRadius: 14,
+    overflow: "hidden",
+    marginBottom: 10,
+    shadowColor: C.green,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  startNavCtaGradient: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    backgroundColor: C.green,
-    borderRadius: 12,
-    paddingVertical: 13,
-    marginBottom: 10,
+    paddingVertical: 14,
   },
-  startNavCtaText: { color: C.bg, fontWeight: "800", fontSize: 13 },
+  startNavCtaText: { color: "#000", fontWeight: "800", fontSize: 13, letterSpacing: 0.3 },
 
   primaryFindBtn: {
-    backgroundColor: C.amber,
-    borderRadius: 12,
-    paddingVertical: 12,
-    alignItems: "center",
+    borderRadius: 14,
+    overflow: "hidden",
     marginBottom: 10,
+    shadowColor: C.amber,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 6,
   },
-  primaryFindBtnText: { color: C.bg, fontWeight: "800", fontSize: 12 },
+  primaryFindBtnGradient: {
+    paddingVertical: 13,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  primaryFindBtnText: { color: "#000", fontWeight: "800", fontSize: 12.5, letterSpacing: 0.3 },
 
   routeSelectCard: {
-    backgroundColor: "#0F141B",
-    borderWidth: 1,
-    borderColor: C.border,
-    borderRadius: 12,
-    padding: 10,
+    backgroundColor: C.bg,
+    borderWidth: 1.2,
+    borderRadius: 14,
+    padding: 12,
     marginBottom: 8,
+    gap: 3,
   },
   routeSelectCardActive: {
-    borderColor: C.amber,
-    backgroundColor: "#18202B",
+    backgroundColor: "#131A24",
   },
-  routeCardBadge: { color: C.text, fontSize: 11, fontWeight: "800" },
-  routeCardMeta: { color: C.sub, fontSize: 10, marginTop: 2 },
-  routeCardSub: { color: C.sub, fontSize: 9, marginTop: 1 },
+  routeCardTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 2,
+  },
+  routeCardBadge: { fontSize: 11, fontWeight: "800", letterSpacing: 0.2 },
+  ratingPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  ratingPillText: { fontSize: 10, fontWeight: "800" },
+  routeCardMeta: { color: C.text, fontSize: 11, fontWeight: "600", marginTop: 1 },
+  routeCardSub: { color: C.sub, fontSize: 10, marginTop: 1 },
 
   explainableCard: {
     backgroundColor: C.surface,
     borderWidth: 1,
     borderColor: C.border,
-    borderRadius: 12,
-    padding: 10,
+    borderRadius: 14,
+    padding: 12,
     marginTop: 4,
     gap: 4,
   },
   explainableTitle: { color: C.amber, fontSize: 12, fontWeight: "700" },
-  explainableItem: { color: C.text, fontSize: 11, marginTop: 2 },
+  explainableItem: { color: C.text, fontSize: 11, lineHeight: 16, flex: 1 },
 
   whyNotFastestBox: {
-    backgroundColor: "rgba(248, 81, 73, 0.08)",
-    borderRadius: 8,
-    padding: 8,
-    marginTop: 4,
+    backgroundColor: C.red + "12",
+    borderWidth: 1,
+    borderColor: C.red + "33",
+    borderRadius: 10,
+    padding: 9,
+    marginTop: 6,
+    gap: 2,
   },
   whyNotFastestTitle: { color: C.red, fontSize: 11, fontWeight: "700" },
-  whyNotFastestText: { color: C.text, fontSize: 10, marginTop: 2 },
+  whyNotFastestText: { color: C.text, fontSize: 10.5, lineHeight: 15 },
 
   aiAdviceBox: {
-    backgroundColor: "rgba(88, 166, 255, 0.08)",
+    backgroundColor: C.blue + "12",
     borderWidth: 1,
-    borderColor: C.border,
+    borderColor: C.blue + "33",
     borderRadius: 10,
-    padding: 8,
-    marginTop: 4,
+    padding: 9,
+    marginTop: 6,
   },
-  aiAdviceHeader: { color: C.amber, fontSize: 11, fontWeight: "800", marginBottom: 2 },
-  aiAdviceText: { color: C.text, fontSize: 10, marginTop: 2 },
+  aiAdviceHeader: { color: C.amber, fontSize: 11, fontWeight: "800" },
+  aiAdviceText: { color: C.text, fontSize: 10.5, marginTop: 2, lineHeight: 15 },
 
   // Navigation Overlay Dock
   navOverlayDock: {
@@ -1443,28 +1985,43 @@ const styles = StyleSheet.create({
     bottom: Platform.OS === "ios" ? 28 : 14,
     left: 14,
     right: 14,
-    backgroundColor: "rgba(22, 27, 34, 0.95)",
     borderWidth: 1,
     borderColor: C.border,
-    borderRadius: 18,
-    padding: 12,
-    gap: 6,
+    borderRadius: 20,
+    padding: 14,
+    gap: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.5,
+    shadowRadius: 14,
+    elevation: 10,
   },
   dockHeaderRow: { flexDirection: "row", alignItems: "center" },
-  dockTitle: { color: C.amber, fontSize: 13, fontWeight: "800" },
-  dockSafetyBadge: { fontSize: 11, fontWeight: "700", marginTop: 1 },
+  dockTitle: { color: C.amber, fontSize: 13.5, fontWeight: "800" },
+  dockSafetyBadge: { fontSize: 11, fontWeight: "700", marginTop: 2 },
 
   riskAheadCard: {
-    backgroundColor: "rgba(248,81,73,0.12)",
+    backgroundColor: C.red + "15",
     borderWidth: 1,
-    borderColor: C.red,
-    borderRadius: 8,
-    padding: 6,
+    borderColor: C.red + "66",
+    borderRadius: 10,
+    padding: 8,
+    gap: 2,
   },
   riskAheadHeader: { color: C.red, fontSize: 10, fontWeight: "800" },
-  riskAheadText: { color: C.text, fontSize: 10, marginTop: 2 },
+  riskAheadText: { color: C.text, fontSize: 10.5, marginTop: 1 },
 
-  telemetryRow: { flexDirection: "row", justifyContent: "space-between", marginVertical: 2 },
+  telemetryRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginVertical: 2,
+    backgroundColor: C.bg,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: C.border,
+  },
   telemetryItem: { alignItems: "center" },
   telemetryVal: { color: C.text, fontSize: 11, fontWeight: "700" },
   telemetrySub: { color: C.sub, fontSize: 9 },
@@ -1473,55 +2030,61 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    backgroundColor: "rgba(255,176,32,0.15)",
+    backgroundColor: C.amber + "1A",
     borderWidth: 1,
-    borderColor: C.amber,
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 5,
+    borderColor: C.amber + "55",
+    borderRadius: 8,
+    paddingHorizontal: 9,
+    paddingVertical: 6,
   },
   voiceBtnText: { color: C.amber, fontSize: 10, fontWeight: "700" },
 
   smallMuteBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: "rgba(255, 176, 32, 0.12)",
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: C.amber + "15",
     borderWidth: 1,
-    borderColor: C.amber,
+    borderColor: C.amber + "44",
     alignItems: "center",
     justifyContent: "center",
   },
   smallMuteBtnActive: {
-    backgroundColor: "rgba(248, 81, 73, 0.15)",
-    borderColor: C.red,
+    backgroundColor: C.red + "18",
+    borderColor: C.red + "55",
   },
 
   exitNavBtn: {
-    backgroundColor: C.redDim,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    backgroundColor: C.red + "1F",
     borderWidth: 1,
     borderColor: C.red,
-    borderRadius: 10,
-    paddingVertical: 10,
-    alignItems: "center",
+    borderRadius: 12,
+    paddingVertical: 11,
     marginTop: 4,
   },
-  exitNavText: { color: C.red, fontWeight: "800", fontSize: 11 },
+  exitNavText: { color: C.red, fontWeight: "800", fontSize: 11.5, letterSpacing: 0.5 },
 
   rerouteBanner: {
     position: "absolute",
     top: Platform.OS === "ios" ? 54 : 20,
     left: 14,
     right: 14,
-    backgroundColor: "#1C1910",
-    borderWidth: 1.5,
+    borderWidth: 1.2,
     borderColor: C.amber,
-    borderRadius: 12,
+    borderRadius: 14,
     padding: 10,
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
     zIndex: 30,
+    shadowColor: "#000",
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 8,
   },
   rerouteBannerText: { color: C.amber, fontSize: 11, fontWeight: "700", flex: 1 },
 

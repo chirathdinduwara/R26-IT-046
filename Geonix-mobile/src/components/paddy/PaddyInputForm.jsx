@@ -104,28 +104,36 @@ export default function PaddyInputForm({
 
         <Text style={styles.enhancedLabel}>{text.district}</Text>
         <PickerField icon="business-outline">
-          <Picker selectedValue={district} onValueChange={setDistrict}>
-            {districts.map((item) => (
-              <Picker.Item
-                key={String(item)}
-                label={String(item)}
-                value={item}
-              />
-            ))}
-          </Picker>
+          {districts && districts.length > 0 ? (
+            <Picker selectedValue={district || districts[0]} onValueChange={setDistrict}>
+              {districts.map((item) => (
+                <Picker.Item
+                  key={String(item)}
+                  label={String(item)}
+                  value={String(item)}
+                />
+              ))}
+            </Picker>
+          ) : (
+            <ActivityIndicator size="small" color="#27763b" style={{ padding: 12 }} />
+          )}
         </PickerField>
 
         <Text style={styles.enhancedLabel}>{text.city}</Text>
         <PickerField icon="location-outline">
-          <Picker selectedValue={city} onValueChange={setCity}>
-            {cities.map((item) => (
-              <Picker.Item
-                key={String(item)}
-                label={String(item)}
-                value={item}
-              />
-            ))}
-          </Picker>
+          {cities && cities.length > 0 ? (
+            <Picker selectedValue={city || cities[0]} onValueChange={setCity}>
+              {cities.map((item) => (
+                <Picker.Item
+                  key={String(item)}
+                  label={String(item)}
+                  value={String(item)}
+                />
+              ))}
+            </Picker>
+          ) : (
+            <ActivityIndicator size="small" color="#27763b" style={{ padding: 12 }} />
+          )}
         </PickerField>
 
         <View style={styles.formSectionSpacing} />

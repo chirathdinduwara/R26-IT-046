@@ -171,24 +171,31 @@ export default function SafeNavigationDemoScreen() {
 
   useEffect(() => {
     let subscription = null;
+    let isMounted = true;
 
     if (isNavigating) {
       (async () => {
         try {
           const { status } = await Location.requestForegroundPermissionsAsync();
-          if (status !== "granted") return;
+          if (status !== "granted" || !isMounted) return;
 
-          subscription = await Location.watchPositionAsync(
+          const sub = await Location.watchPositionAsync(
             {
               accuracy: Location.Accuracy.BestForNavigation,
               timeInterval: 2000,
               distanceInterval: 5,
             },
             (loc) => {
+              if (!isMounted) return;
               setOriginLat(String(loc.coords.latitude.toFixed(6)));
               setOriginLon(String(loc.coords.longitude.toFixed(6)));
             }
           );
+          if (!isMounted) {
+            sub.remove();
+          } else {
+            subscription = sub;
+          }
         } catch (e) {
           console.warn("Location watch error:", e);
         }
@@ -196,6 +203,7 @@ export default function SafeNavigationDemoScreen() {
     }
 
     return () => {
+      isMounted = false;
       if (subscription) {
         subscription.remove();
       }

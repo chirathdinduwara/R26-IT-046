@@ -466,7 +466,6 @@ export default function FloodMapScreen() {
 
       {/* ── Map ──────────────────────────────────────────────────────────── */}
       <MapView
-        provider={PROVIDER_GOOGLE}
         ref={mapRef}
         style={styles.map}
         mapType={mapType}

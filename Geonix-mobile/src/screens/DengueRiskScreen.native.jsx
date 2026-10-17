@@ -1166,60 +1166,64 @@ export default function DengueRiskScreen() {
           </ScrollView>
 
           <View style={styles.mapContainer}>
-            <MapView
-              ref={mapRef}
-              style={styles.map}
-              initialRegion={initialRegion}
-              mapType={mapType}
-            >
-              {mapAreas.map((area) => {
-                const risk = areaRiskForWeek(area, selectedWeek);
-                const colors = riskStyle(risk.risk_level);
-                return (
-                  <Polygon
-                    key={area.area_id}
-                    coordinates={area.polygon}
-                    fillColor={colors.fill}
-                    strokeColor={colors.stroke}
-                    strokeWidth={1.5}
-                  />
-                );
-              })}
-              {mapAreas.map((area) => {
-                const risk = areaRiskForWeek(area, selectedWeek);
-                const riskCfg = getRiskColorConfig(risk.risk_level);
-                return (
-                  <Marker
-                    key={`${area.area_id}-marker`}
-                    coordinate={area.center}
-                    title={`${area.area_name} (${riskCfg.label})`}
-                    description={`${percentage(risk.risk_score)} - ${formatWeekLabel(selectedWeek, summary?.current_risk?.week_label)}`}
-                  >
-                    <View
-                      style={[
-                        styles.customMarkerBadge,
-                        { backgroundColor: riskCfg.color },
-                      ]}
+            {!isFullscreenMap ? (
+              <MapView
+                ref={mapRef}
+                style={styles.map}
+                initialRegion={initialRegion}
+                mapType={mapType}
+              >
+                {mapAreas.map((area) => {
+                  const risk = areaRiskForWeek(area, selectedWeek);
+                  const colors = riskStyle(risk.risk_level);
+                  return (
+                    <Polygon
+                      key={area.area_id}
+                      coordinates={area.polygon}
+                      fillColor={colors.fill}
+                      strokeColor={colors.stroke}
+                      strokeWidth={1.5}
+                    />
+                  );
+                })}
+                {mapAreas.map((area) => {
+                  const risk = areaRiskForWeek(area, selectedWeek);
+                  const riskCfg = getRiskColorConfig(risk.risk_level);
+                  return (
+                    <Marker
+                      key={`${area.area_id}-marker`}
+                      coordinate={area.center}
+                      title={`${area.area_name} (${riskCfg.label})`}
+                      description={`${percentage(risk.risk_score)} - ${formatWeekLabel(selectedWeek, summary?.current_risk?.week_label)}`}
                     >
-                      <Text style={styles.customMarkerBadgeText}>
-                        {percentage(risk.risk_score)}
-                      </Text>
+                      <View
+                        style={[
+                          styles.customMarkerBadge,
+                          { backgroundColor: riskCfg.color },
+                        ]}
+                      >
+                        <Text style={styles.customMarkerBadgeText}>
+                          {percentage(risk.risk_score)}
+                        </Text>
+                      </View>
+                    </Marker>
+                  );
+                })}
+                {summary?.user_location ? (
+                  <Marker
+                    coordinate={summary.user_location}
+                    title="Your location"
+                    description="Live GPS position"
+                  >
+                    <View style={styles.userGpsPulseOuter}>
+                      <View style={styles.userGpsDot} />
                     </View>
                   </Marker>
-                );
-              })}
-              {summary?.user_location ? (
-                <Marker
-                  coordinate={summary.user_location}
-                  title="Your location"
-                  description="Live GPS position"
-                >
-                  <View style={styles.userGpsPulseOuter}>
-                    <View style={styles.userGpsDot} />
-                  </View>
-                </Marker>
-              ) : null}
-            </MapView>
+                ) : null}
+              </MapView>
+            ) : (
+              <View style={[styles.map, { backgroundColor: "#111720" }]} />
+            )}
 
             <View style={styles.floatingMapTypeRow}>
               {MAP_TYPES.map((opt) => {
